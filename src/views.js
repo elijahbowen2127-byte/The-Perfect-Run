@@ -1,0 +1,497 @@
+// Client-side views of networked things: other players, mobs, bosses, the
+// demon and NPCs. They interpolate toward the latest snapshot.
+import { PERF } from './perf.js';
+import { makeRiderBoard, RiderAnim, unpackBoard } from './skate.js';
+import { animateWeapon } from './weapons.js';
+import * as THREE from 'three';
+import { MOBS, MOB_TYPES, BOSSES, NPCS, NPC_TYPES, CLASS_BY_ID, WEAPON_BY_ID, MINI, ELITE } from './data.js';
+import { makeHumanoid, makeMob, makeBoss, makeDemon, makeNameplate } from './models.js';
+import { makeCharacterModel, flushSwipes, setCharacterScale, STEP_KIND, stepAccum } from './characters.js';
+import { makeMobRig, MOB_LOOKS } from './mobrig.js';
+import { makeOrbitBlades, makeAuraRing } from './duelfx.js';
+import { makeJetpack, jetFx } from './jetpack.js';
+import { makeWings, setWings } from './wings.js';
+import { Drone, Turret } from './drone.js';
+import * as thermes from './thermes.js';
+import { CHAR_BY_ID } from './characters.js';
+
+const lerpA = (a, b, t) => { const d = Math.atan2(Math.sin(b - a), Math.cos(b - a)); return a + d * t; };
+
+const barGeo = new THREE.PlaneGeometry(1, 0.1);
+const barBg = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.6, depthTest: false });
+const barFg = new THREE.MeshBasicMaterial({ color: 0xff3a3a, depthTest: false });
+const barFgMini = new THREE.MeshBasicMaterial({ color: 0xffc233, depthTest: false });
+const barFgNpc = new THREE.MeshBasicMaterial({ color: 0x5aff7a, depthTest: false });
+
+function hpBar(width, fgMat = barFg) {
+  const g = new THREE.Group();
+  const bg = new THREE.Mesh(barGeo, barBg);
+  bg.scale.set(width + 0.06, 1.6, 1);
+  const fg = new THREE.Mesh(barGeo, fgMat);
+  fg.scale.x = width;
+  fg.position.z = 0.001;
+  bg.renderOrder = fg.renderOrder = 9;
+  g.add(bg, fg);
+  g.userData = { fg, width };
+  g.visible = false;
+  return g;
+}
+function setBar(bar, frac, camera, always) {
+  bar.visible = always || frac < 0.999;
+  if (!bar.visible) return;
+  const w = bar.userData.width;
+  bar.userData.fg.scale.x = Math.max(0.001, w * frac);
+  bar.userData.fg.position.x = -(w - w * frac) / 2;
+  bar.quaternion.copy(camera.quaternion);
+}
+
+export class RemotePlayerView {
+  constructor(scene, id, p) {
+    this.scene = scene;
+    this.id = id;
+    this.cls = CLASS_BY_ID[p.c] || CLASS_BY_ID.pyre;
+    this.model = makeCharacterModel(p.ch || 'veteran', () => makeHumanoid({ color: this.cls.color, accent: this.cls.accent, hood: p.c === 'pyre' || p.c === 'gale' }), p.sk);
+    this.plate = makeNameplate(String(p.n || 'Player').slice(0, 16), this.cls.css);
+    this.plate.position.y = 2.35;
+    this.plate.visible = false; // the DOM ally tag (src/allytags.js) replaces it
+    this.model.add(this.plate);
+    this.boardObj = makeRiderBoard();
+    this.model.add(this.boardObj);
+    this.rider = new RiderAnim();
+    this.rb = { h: 0, s: 0, lean: 0, pushT: -1, brake: false, air: false, ollieN: 0, kick: 0, aimT: 0, ci: 0 };
+    // The jetpack (Perfect Shop) shows on a teammate's back while they have it equipped (presence jp), jets lit when flying.
+    const def = CHAR_BY_ID[p.ch] || {};
+    this.pack = makeJetpack();
+    this.pack.position.set(0, (def.height || 1.8) * 0.7, -(def.packZ ?? 0.2));
+    this.pack.visible = false;
+    this.model.add(this.pack);
+    this.wings = makeWings(); // Wings (gear) show on the back too: presence jp 3 idle, 4 soaring, 5 flapping
+    this.wings.position.set(0, (def.height || 1.8) * 0.74, -(def.packZ ?? 0.2) + 0.02);
+    this.wings.visible = false; this.wingSpread = 0;
+    this.model.add(this.wings);
+    this.jetLevel = 0;
+    scene.add(this.model);
+    this.pos = new THREE.Vector3();
+    this.target = new THREE.Vector3();
+    this.yaw = 0;
+    this.init = false;
+    this.t = Math.random() * 10;
+    this.shieldWas = 0;
+  }
+  update(p, dt, camera, fx) {
+    this.t += dt;
+    if (Array.isArray(p.p)) this.target.set(p.p[0] / 10, p.p[1] / 10, p.p[2] / 10);
+    if (!this.init) { this.pos.copy(this.target); this.init = true; }
+    if (this.pos.distanceTo(this.target) > 12) this.pos.copy(this.target);
+    else this.pos.lerp(this.target, Math.min(1, dt * 14));
+    this.yaw = lerpA(this.yaw, (p.ry || 0) / 100, Math.min(1, dt * 14));
+    this.model.position.copy(this.pos);
+    this.model.rotation.y = this.yaw;
+    setCharacterScale(this.model, this.size || 1); // duel fighters are drawn larger (game sets size)
+    const riding = p.sb > 0 && p.al;
+    this.boardObj.visible = !!riding;
+    if (riding) {
+      // Sideways skater stance, same pose code as the local player; teammates send heading, lean and a packed state.
+      const rb = unpackBoard(this.rb, p), fire = p.ml || p.ct;
+      if (this.boardObj.userData.ci !== rb.ci) this.boardObj.userData.setColor(rb.ci);
+      if (fire) rb.aimT = 1;
+      const dy = this.prevY === undefined ? 0 : (this.pos.y - this.prevY) / Math.max(dt, 1e-3);
+      this.vyEst = (this.vyEst || 0) + (dy - (this.vyEst || 0)) * Math.min(1, dt * 10);
+      const pitch = rb.air ? 0 : -Math.atan(THREE.MathUtils.clamp(this.vyEst / Math.max(rb.s, 2), -0.6, 0.6));
+      this.slopeP = (this.slopeP || 0) + (pitch - (this.slopeP || 0)) * Math.min(1, dt * 6);
+      this.rider.pre(this.model, this.boardObj, rb, dt, { pos: this.pos, yaw: this.yaw, fp: false, tilt: { pitch: this.slopeP, roll: 0 }, vy: this.vyEst });
+    } else {
+      this.model.rotation.set(0, this.yaw, 0);
+      this.rider.reset();
+    }
+    this.prevY = this.pos.y;
+    if (p.ml && !this.mlT) this.mlT = 0.001;
+    if (this.mlT) { this.mlT += dt * 1.8; if (this.mlT >= 1) this.mlT = p.ml ? 0.001 : 0; }
+    const w = Array.isArray(p.wp) ? p.wp[p.wi || 0] : null;
+    if (w && WEAPON_BY_ID[w]) this.model.userData.setWeapon(WEAPON_BY_ID[w].kind === 'gear' ? 'bare' : w); // an all-gear loadout fights bare-handed
+    // Web Swing: the anchor of the line they hang from (presence sw, tenths of a metre); the left arm reaches for it.
+    const sw = Array.isArray(p.sw) && p.sw.length === 3 ? [p.sw[0] / 10, p.sw[1] / 10, p.sw[2] / 10] : null;
+    this.model.userData.anim({ speed: riding ? 0 : (p.sp || 0) / 10, pitch: (p.pt || 0) / 100, gun: true, reload: !p.gn && WEAPON_BY_ID[w] && WEAPON_BY_ID[w].kind === 'gun', weapon: true, melee: this.mlT || 0, arc: WEAPON_BY_ID[w] && WEAPON_BY_ID[w].arc, cast: p.ct ? 1 : 0, dead: !p.al, swing: sw, eyes: p.ey > 0, eyeGlow: p.ey === 2 ? 1 : 0.45 }, dt, this.t);
+    if (fx) flushSwipes(this.model, fx);
+    const rig = this.model.userData.rig;
+    if (sw && fx && p.al) fx.webLine('r' + this.id, rig ? rig.handWorld('Left') : [this.pos.x, this.pos.y + 1.6, this.pos.z], sw);
+    // Jetpack on the back: shown while equipped, flames while they fly (jp 2).
+    const jp = p.jp | 0;
+    this.pack.visible = jp > 0 && jp < 3 && !!p.al;
+    this.wings.visible = jp >= 3 && !!p.al;
+    if (this.wings.visible) {
+      this.wingSpread += ((jp === 4 ? 1 : jp === 5 ? 0.8 : 0) - this.wingSpread) * Math.min(1, dt * 9);
+      setWings(this.wings, this.wingSpread, jp === 5 ? Math.sin(this.t * 22) : 0);
+    }
+    this.jetLevel += ((jp === 2 ? 1 : 0) - this.jetLevel) * Math.min(1, dt * 8);
+    if (fx) jetFx(this.pack, this.pack.visible ? this.jetLevel : 0, fx, dt, this.t);
+    // Guardian Drone at a teammate's shoulder (presence dr): this copy aims and flashes but deals no damage.
+    if ((p.dr | 0) > 0 && !this.drone) this.drone = new Drone(false, this.game);
+    if (this.drone) this.drone.update(dt, { x: this.pos.x, y: this.pos.y, z: this.pos.z, yaw: this.yaw }, (p.dr | 0) > 0 && !!p.al);
+    // A teammate's planted turret (presence tr: position and facing): shown while they report it, aiming and flashing, no damage.
+    const tr = Array.isArray(p.tr) && p.tr.length === 4 ? p.tr : null;
+    if (tr && (!this.turret || Math.hypot(this.turret.obj.position.x - tr[0] / 10, this.turret.obj.position.z - tr[2] / 10) > 0.5)) {
+      if (this.turret) this.turret.dispose();
+      this.turret = new Turret(false, tr[0] / 10, tr[1] / 10, tr[2] / 10, tr[3] / 100, this.game);
+    }
+    if (!tr && this.turret) { this.turret.dispose(); this.turret = null; }
+    if (this.turret) { this.turret.life = 99; this.turret.update(dt); }
+    if (riding) this.rider.post(this.model);
+    animateWeapon(this.model.userData.weapon, (p.sn || 0) / 100, dt, !!p.gn); // teammate's minigun rotor, rocket / bolt shown while loaded
+    // Quiet footsteps for teammates, softer with distance.
+    if (this.audio && p.al && !riding) {
+      const cd = Math.hypot(camera.position.x - this.pos.x, camera.position.z - this.pos.z);
+      this.stepAcc = stepAccum(this.stepAcc || 0, dt, (p.sp || 0) / 10, true, (vv) => this.audio.footstep(STEP_KIND[p.ch] || 'boot', vv * 0.8 * Math.max(0, 1 - cd / 28)));
+    }
+    this.dead = !p.al;
+    this.specials(p, dt);
+    this.alive = !!p.al && !p.out;
+    this.hp = p.hp || 0; this.mh = p.mh || 1; this.name = String(p.n || 'Player');
+    this.model.visible = !p.out || !!p.al;
+  }
+  // Orbiting blades and the fire ring of a power-up the other fighter holds.
+  specials(p, dt) {
+    const ob = p.ob | 0, au = p.au | 0;
+    if (ob > 0) {
+      if (!this.orbit || this.orbit.userData.n !== ob) { if (this.orbit) this.scene.remove(this.orbit); this.orbit = makeOrbitBlades(ob, this.cls.color); this.scene.add(this.orbit); }
+      this.orbit.position.set(this.pos.x, this.pos.y + 1.0, this.pos.z);
+      this.orbit.rotation.y += dt * 3.4;
+    } else if (this.orbit) { this.scene.remove(this.orbit); this.orbit = null; }
+    if (au > 0) {
+      if (!this.ring) { this.ring = makeAuraRing(); this.scene.add(this.ring); }
+      const r = 3.4 + 0.7 * au;
+      this.ring.position.set(this.pos.x, this.pos.y + 0.08, this.pos.z);
+      this.ring.scale.setScalar(r * (1 + 0.03 * Math.sin(this.t * 6)));
+    } else if (this.ring) { this.scene.remove(this.ring); this.ring = null; }
+  }
+  dispose() {
+    this.scene.remove(this.model);
+    if (this.orbit) this.scene.remove(this.orbit);
+    if (this.ring) this.scene.remove(this.ring);
+    if (this.drone) { this.drone.dispose(); this.drone = null; } // a teammate's / the opponent's sentries leave with them (rematch, round load)
+    if (this.turret) { this.turret.dispose(); this.turret = null; }
+  }
+}
+
+const _dir = new THREE.Vector3();
+export class MobView {
+  constructor(scene, row, tint) {
+    this.scene = scene;
+    this.id = row[0];
+    this.type = MOB_TYPES[row[1]];
+    this.base = MOBS[this.type];
+    this.rig = makeMobRig(this.type);
+    if (this.rig) {
+      this.model = this.rig.root;
+      this.vh = MOB_LOOKS[this.type].h + (MOB_LOOKS[this.type].float || 0);
+    } else {
+      this.model = makeMob(this.type, tint);
+      this.model.scale.setScalar(this.base.scale);
+      this.vh = this.base.height * this.base.scale;
+    }
+    this.mini = !!row[9];
+    if (this.mini) { this.model.scale.multiplyScalar(MINI.size); this.vh *= MINI.size; }
+    this.elite = ELITE.kinds[row[10] | 0] || null; // elite modifier: a coloured aura, a little bigger
+    if (this.elite && !this.mini) { this.model.scale.multiplyScalar(1.18); this.vh *= 1.18; }
+    const s = this.model.scale.x;
+    this.bar = hpBar(this.base.radius * 1.8 * (this.mini ? MINI.size : 1), this.mini ? barFgMini : barFg);
+    this.bar.position.y = (this.vh + 0.35) / s;
+    this.model.add(this.bar);
+    this.bar.scale.setScalar(1 / s);
+    scene.add(this.model);
+    this.x = row[2] / 10; this.z = row[3] / 10; this.y = 0;
+    this.fly = !!this.base.fly;
+    this.air = this.fly || !!this.base.leap; // follows the height the host sends (flyers, and pouncers mid-leap)
+    this.look = MOB_LOOKS[this.type] || {};
+    this.fy = this.tfy = (row[8] || 0) / 10;
+    this.fvy = 0;
+    this.tx = this.x; this.tz = this.z;
+    this.yaw = row[6] / 10;
+    this.t = Math.random() * 10;
+    this.phase = Math.random() * 6;
+    this.hp = row[4] / 100;
+    this.lastHp = this.hp;
+    this.flags = 0;
+    this.anim = 0;
+    this.spawnT = 0;
+  }
+  apply(row) {
+    this.tx = row[2] / 10; this.tz = row[3] / 10;
+    this.hp = row[4] / 100;
+    this.flags = row[5];
+    this.tyaw = row[6] / 10;
+    this.anim = Math.max(this.anim, row[7] / 9);
+    this.tfy = (row[8] || 0) / 10;
+  }
+  update(dt, world, camera, fx) {
+    this.t += dt;
+    this.spawnT += dt;
+    const ox = this.x, oz = this.z, oy = this.y;
+    const k = Math.min(1, dt * 10);
+    this.x += (this.tx - this.x) * k;
+    this.z += (this.tz - this.z) * k;
+    const speed = Math.hypot(this.x - ox, this.z - oz) / Math.max(dt, 1e-3);
+    this.ground = world.heightAt(this.x, this.z);
+    const air = this.air || this.tfy > 0 || this.fy > 0.01; // hurled ground mobs ride the host's height too
+    if (air) this.fy += (this.tfy - this.fy) * Math.min(1, dt * (this.fly ? 8 : 16));
+    this.y = this.ground + (air ? this.fy : 0);
+    this.yaw = lerpA(this.yaw, this.tyaw ?? this.yaw, Math.min(1, dt * 10));
+    const rise = this.fly ? 1 : Math.min(1, this.spawnT / 0.6);
+    const fl = this.rig ? (MOB_LOOKS[this.type].float || 0) : 0;
+    const bob = fl ? Math.sin(this.t * 2 + this.phase) * 0.12 : 0;
+    this.model.position.set(this.x, this.y + fl + bob - (1 - rise) * 1.8, this.z);
+    this.model.rotation.y = this.yaw;
+    this.anim = Math.max(0, this.anim - dt * 3);
+    // Held still by ice.
+    const frozen = this.flags & 1 ? 1 : 0;
+    const hit = this.hp < this.lastHp - 1e-4; this.lastHp = this.hp;
+    // Staggered (flag 32): the body stops dead and jolts; the rig gets a heavier flinch the moment it starts.
+    const stag = (this.flags & 32) !== 0, stagStart = stag && !this.stagWas; this.stagWas = stag;
+    if (this.rig) {
+      const dx = this.x - camera.position.x, dz = this.z - camera.position.z, d = Math.hypot(dx, dz);
+      camera.getWorldDirection(_dir);
+      const behind = d > 4 && (dx * _dir.x + dz * _dir.z) / d < -0.2;
+      const far = behind ? 0.2 : d < 16 ? 0 : d < 36 ? 0.05 : 0.12;
+      const st = { speed: frozen || stag ? 0 : speed, attack: this.anim, frozen, hit, stagger: stagStart };
+      if (this.fly) {
+        // Wing beat and body pitch follow the climb or dive.
+        const vy = (this.y - oy) / Math.max(dt, 1e-3);
+        st.vy = vy; st.frozen = frozen;
+        st.pitch = THREE.MathUtils.clamp(Math.atan2(-vy, Math.max(speed, 1.5)) * 0.8 + 0.12, -0.7, 1.0);
+      }
+      this.rig.update(st, dt, far);
+    } else this.model.userData.anim({ speed: frozen || stag ? 0 : speed, attack: this.anim, phase: this.phase, frozen }, frozen ? 0 : dt, this.t);
+    // Every enemy shows its health once you are close enough; hurt ones stay visible from further away, champions always.
+    const bd = Math.hypot(this.x - camera.position.x, this.z - camera.position.z);
+    // Only enemies near the camera cast shadows (the frame-rate governor sets how near).
+    const shad = bd < PERF.mobShadow;
+    if (shad !== this.shad) {
+      if (!this.shMeshes) { this.shMeshes = []; this.model.traverse((o) => { if (o.isMesh && o.castShadow) this.shMeshes.push(o); }); }
+      this.shad = shad;
+      for (const o of this.shMeshes) o.castShadow = shad;
+    }
+    setBar(this.bar, this.hp, camera, this.mini || bd < 30 || (this.hp < 0.999 && bd < 55));
+    if (this.mini) {
+      if (Math.random() < 0.18) fx.glow.emit({ p: [this.x + (Math.random() - 0.5) * 2, this.y + 0.1, this.z + (Math.random() - 0.5) * 2], v: [0, 1.4, 0], life: 0.8, s0: 0.9, s1: 0.2, c0: [1, 0.8, 0.3, 0.5], c1: [1, 0.55, 0.1, 0] });
+    }
+    const H = this.vh;
+    if (this.elite && bd < 70) {
+      const c = this.elite.color, sh = this.flags & 64;
+      if (Math.random() < 0.55) fx.glow.emit({ p: [this.x + (Math.random() - 0.5) * 1.0, this.y + Math.random() * H, this.z + (Math.random() - 0.5) * 1.0], v: [0, 1.0, 0], life: 0.55, s0: 0.7, s1: 0.15, c0: [c[0], c[1], c[2], 0.85], c1: [c[0], c[1], c[2], 0] });
+      fx.glow.emit({ p: [this.x, this.y + H * 0.55, this.z], life: 0.06, s0: H * (sh ? 2.1 : 1.5), s1: H * (sh ? 2.1 : 1.5), c0: [c[0], c[1], c[2], sh ? 0.3 : 0.16], c1: [c[0], c[1], c[2], sh ? 0.25 : 0.1] }); // a halo you can spot from far away
+    }
+    // Ability wind-up (bit 8: bomber fuse, pouncer crouch, necromancer cast, archer aim, ogre smash) and per-type ambience.
+    const L = this.look;
+    if (bd < 55) {
+      if (this.flags & 8 && L.tele) {
+        const c = L.tele;
+        for (let i = 0; i < 2; i++) fx.glow.emit({ p: [this.x + (Math.random() - 0.5) * 0.9, this.y + Math.random() * H, this.z + (Math.random() - 0.5) * 0.9], v: [0, 1.5, 0], life: 0.35, s0: 0.7, s1: 0.1, c0: [c[0], c[1], c[2], 0.9], c1: [c[0], c[1], c[2], 0] });
+        if (Math.random() < 0.12) fx.glow.emit({ p: [this.x, this.y + H * 0.6, this.z], life: 0.12, s0: H * 1.6, s1: H * 1.2, c0: [c[0], c[1], c[2], 0.35], c1: [c[0], c[1], c[2], 0] });
+      }
+      if (L.aura && Math.random() < 0.3) {
+        const px = this.x + (Math.random() - 0.5) * 0.8, pz = this.z + (Math.random() - 0.5) * 0.8;
+        if (L.aura === 'fire') fx.fire.emit({ p: [px, this.y + Math.random() * H, pz], v: [0, 1.8, 0], life: 0.5, s0: 0.55, s1: 0.1, c0: [1, 0.6, 0.15, 0.9], c1: [0.8, 0.1, 0, 0], turb: 3 });
+        else if (L.aura === 'poison') fx.glow.emit({ p: [px, this.y + H * (0.2 + Math.random() * 0.5), pz], v: [0, -0.5, 0], life: 0.7, s0: 0.3, s1: 0.1, c0: [0.5, 1, 0.15, 0.8], c1: [0.4, 0.8, 0.1, 0] });
+        else if (L.aura === 'wisp') fx.glow.emit({ p: [px, this.y + Math.random() * H, pz], v: [0, 0.9, 0], life: 1.0, s0: 0.4, s1: 0.1, c0: [0.3, 1, 0.6, 0.6], c1: [0.2, 0.9, 0.5, 0] });
+        else if (L.aura === 'spark') fx.glow.emit({ p: [this.x, this.y + H * 0.95, this.z], v: [(Math.random() - 0.5) * 2, 2.5, (Math.random() - 0.5) * 2], life: 0.3, s0: 0.25, s1: 0.05, c0: [1, 0.8, 0.3, 1], c1: [1, 0.3, 0, 0] });
+      }
+    }
+    if (this.flags & 2 && Math.random() < 0.5) fx.fire.emit({ p: [this.x + (Math.random() - 0.5) * 0.6, this.y + Math.random() * H, this.z + (Math.random() - 0.5) * 0.6], v: [0, 2.5, 0], life: 0.4, s0: 0.7, s1: 0.2, c0: [1, 0.8, 0.4, 1], c1: [1, 0.2, 0, 0], turb: 4 });
+    if (this.flags & 1 && Math.random() < 0.4) fx.shard.emit({ p: [this.x + (Math.random() - 0.5) * 0.8, this.y + Math.random() * H, this.z + (Math.random() - 0.5) * 0.8], v: [0, 0.3, 0], life: 0.6, s0: 0.35, s1: 0.1, c0: [0.8, 0.95, 1, 1], c1: [0.6, 0.85, 1, 0] });
+    else if (this.flags & 4 && Math.random() < 0.2) fx.glow.emit({ p: [this.x, this.y + 0.3, this.z], v: [0, 0.4, 0], life: 0.6, s0: 1.2, s1: 1.6, c0: [0.6, 0.85, 1, 0.3], c1: [0.6, 0.85, 1, 0] });
+  }
+  target() {
+    return { id: this.id, kind: 'mob', x: this.x, y: this.y, z: this.z, r: this.base.radius, h: this.vh, view: this };
+  }
+  // Killed: play the fall, then remove. Returns false when finished.
+  dying(dt) {
+    if (!this.rig) return false;
+    this.bar.visible = false;
+    if (this.air && this.fy > 0) {
+      // A shot flyer drops out of the sky before it settles.
+      this.fvy += 22 * dt;
+      this.fy = Math.max(0, this.fy - this.fvy * dt);
+      this.model.position.y = this.ground + this.fy;
+    }
+    return this.rig.die(dt);
+  }
+  dispose() { this.scene.remove(this.model); if (this.drone) this.drone.dispose(); if (this.turret) this.turret.dispose(); }
+}
+
+export class BossView {
+  constructor(scene, row) {
+    this.scene = scene;
+    this.idx = row[0];
+    this.def = BOSSES[this.idx];
+    this.rig = makeMobRig('boss' + this.idx);
+    this.model = this.rig ? this.rig.root : makeBoss(this.idx, this.def);
+    scene.add(this.model);
+    this.x = row[1] / 10; this.z = row[2] / 10; this.y = 0;
+    this.tx = this.x; this.tz = this.z;
+    this.yaw = 0; this.t = 0; this.hp = 1; this.anim = 0; this.spawnT = 0;
+  }
+  apply(row) {
+    this.tx = row[1] / 10; this.tz = row[2] / 10;
+    this.hp = row[3] / 1000;
+    this.anim = Math.max(this.anim, row[4] / 9);
+    this.tyaw = row[5] / 10;
+    this.charging = row[6];
+    // Thermes: row[7] is the current eye-laser yaw (x100), 9999 while he charges them, null otherwise.
+    this.laser = row[7] == null || row[7] === 9999 ? null : row[7] / 100;
+    this.lasering = row[7] != null;
+  }
+  update(dt, world, camera, fx) {
+    this.t += dt;
+    this.spawnT += dt;
+    const ox = this.x, oz = this.z;
+    const k = Math.min(1, dt * (this.charging ? 18 : 8));
+    this.x += (this.tx - this.x) * k;
+    this.z += (this.tz - this.z) * k;
+    const speed = Math.hypot(this.x - ox, this.z - oz) / Math.max(dt, 1e-3);
+    this.y = world.heightAt(this.x, this.z);
+    this.yaw = lerpA(this.yaw, this.tyaw ?? 0, Math.min(1, dt * 6));
+    const rise = Math.min(1, this.spawnT / 2.5);
+    const fl = this.rig ? (MOB_LOOKS['boss' + this.idx].float || 0) : 0;
+    this.model.position.set(this.x, this.y + fl + (fl ? Math.sin(this.t * 1.3) * 0.3 : 0) - (1 - rise) * 8, this.z);
+    this.model.rotation.y = this.yaw;
+    this.anim = Math.max(0, this.anim - dt * 1.5);
+    const hit = this.hp < (this.lastHp ?? this.hp) - 0.02; this.lastHp = this.hp;
+    if (this.rig) this.rig.update({ speed, attack: this.anim, hit }, dt, false);
+    else this.model.userData.anim({ speed, attack: this.anim }, dt, this.t);
+    if (this.idx === 6) {
+      // Thermes: pulsing skin and breathing aura, eyes tracked for the laser beams (brighter while they charge).
+      thermes.tickThermes(this.model, dt, this.t);
+      if (this.laser != null) { this.eyes = this.eyes || [new THREE.Vector3(), new THREE.Vector3()]; thermes.thermesEyes(this.model, this.eyes); }
+    }
+    if (rise < 1 && Math.random() < 0.8) fx.dustBurst([this.x + (Math.random() - 0.5) * 6, this.y, this.z + (Math.random() - 0.5) * 6], 0.6);
+    if (Math.random() < 0.3) {
+      const c = new THREE.Color(this.def.glow);
+      fx.glow.emit({ p: [this.x + (Math.random() - 0.5) * 3, this.y + Math.random() * this.def.scale * 2.5, this.z + (Math.random() - 0.5) * 3], v: [0, 1, 0], life: 1, s0: 0.6, s1: 0.1, c0: [c.r, c.g, c.b, 0.8], c1: [c.r, c.g, c.b, 0] });
+    }
+  }
+  target() { const s = this.def.scale; return { id: 'B', kind: 'boss', x: this.x, y: this.y, z: this.z, r: 0.9 * s, h: 2.9 * s, view: this }; }
+  dispose() { this.scene.remove(this.model); }
+}
+
+const DEATH_SCALE = 1.7;
+export class DemonView {
+  constructor(scene, row) {
+    this.scene = scene;
+    this.model = makeCharacterModel('death', makeDemon);
+    if (this.model.userData.rig) this.model.userData.setWeapon('reaperScythe');
+    this.model.scale.setScalar(DEATH_SCALE); // twice the player's height
+    scene.add(this.model);
+    this.x = row[0] / 10; this.z = row[1] / 10; this.y = 0; this.yaw = 0; this.t = 0; this.anim = 0;
+    this.tx = this.x; this.tz = this.z; this.tyaw = 0; this.swing = 0; this.hp = 1;
+  }
+  apply(row) { this.hp = (row[4] || 1000) / 1000; this.tx = row[0] / 10; this.tz = row[1] / 10; this.tyaw = row[2] / 10; this.anim = Math.max(this.anim, row[3] / 9); }
+  mist(fx, x, y, z, n, spread, up) {
+    for (let i = 0; i < n; i++) {
+      fx.smoke.emit({ p: [x + (Math.random() - 0.5) * spread, y + Math.random() * up, z + (Math.random() - 0.5) * spread], v: [(Math.random() - 0.5) * 2, Math.random() * 1.5, (Math.random() - 0.5) * 2], life: 1.3, s0: 0.9, s1: 2.6, c0: [0.03, 0.05, 0.14, 0.7], c1: [0.04, 0.06, 0.16, 0] });
+      if (i % 3 === 0) fx.glow.emit({ p: [x + (Math.random() - 0.5) * spread, y + Math.random() * up, z + (Math.random() - 0.5) * spread], v: [0, 0.8, 0], life: 0.9, s0: 0.5, s1: 0.1, c0: [0.35, 0.5, 1, 0.55], c1: [0.2, 0.2, 0.8, 0] });
+    }
+  }
+  update(dt, world, camera, fx) {
+    this.t += dt;
+    const ox = this.x, oz = this.z;
+    if (Math.hypot(this.tx - this.x, this.tz - this.z) > 10) {
+      // Blinked: a burst of cold mist where she left and where she lands.
+      this.mist(fx, this.x, world.heightAt(this.x, this.z), this.z, 14, 1.4, 2);
+      this.x = this.tx; this.z = this.tz;
+      this.mist(fx, this.x, world.heightAt(this.x, this.z), this.z, 14, 1.4, 2);
+    }
+    const k = Math.min(1, dt * 10);
+    this.x += (this.tx - this.x) * k; this.z += (this.tz - this.z) * k;
+    const speed = Math.hypot(this.x - ox, this.z - oz) / Math.max(dt, 1e-3);
+    this.y = world.heightAt(this.x, this.z);
+    // Quick turn onto the target so the swing always faces it.
+    this.yaw = lerpA(this.yaw, this.tyaw ?? 0, Math.min(1, dt * (this.anim > 0 ? 22 : 12)));
+    this.model.position.set(this.x, this.y, this.z);
+    this.model.rotation.y = this.yaw;
+    this.anim = Math.max(0, this.anim - dt * 1.5);
+    const m = this.anim > 0 ? 1 - this.anim : 0;
+    const lean = 0.28 * Math.sin(Math.min(1, m) * Math.PI) + Math.min(0.18, speed / 50);
+    this.model.userData.anim({ speed, attack: this.anim, melee: m, pitch: lean, sprint: speed > 5, auraI: 1 + this.anim }, dt, this.t);
+    if (Math.random() < 0.6) fx.smoke.emit({ p: [this.x + (Math.random() - 0.5) * 0.8, this.y + 0.1 + Math.random() * 0.5, this.z + (Math.random() - 0.5) * 0.8], v: [0, 0.5, 0], life: 1.6, s0: 0.8, s1: 2.4, c0: [0.03, 0.05, 0.13, 0.55], c1: [0.04, 0.06, 0.16, 0] });
+    if (Math.random() < 0.25) fx.glow.emit({ p: [this.x + (Math.random() - 0.5) * 0.7, this.y + 0.2 + Math.random() * 1.6, this.z + (Math.random() - 0.5) * 0.7], v: [0, 1, 0], life: 0.9, s0: 0.35, s1: 0.05, c0: [0.35, 0.5, 1, 0.6], c1: [0.2, 0.2, 0.8, 0] });
+    // Cold glow in the hood.
+    fx.glow.emit({ p: [this.x, this.y + 1.62 * DEATH_SCALE, this.z], life: 0.05, s0: 2.4 * DEATH_SCALE, s1: 2.4 * DEATH_SCALE, c0: [0.3, 0.45, 1, 0.22], c1: [0.3, 0.45, 1, 0.2] });
+    // A pale arc follows the blade through the cut.
+    if (m > 0.3 && m < 0.7 && this.model.userData.weapon) {
+      const w = this.model.userData.weapon, tip = w.localToWorld(new THREE.Vector3(0.95, 0, 0.82));
+      fx.glow.emit({ p: [tip.x, tip.y, tip.z], life: 0.22, s0: 0.5, s1: 0.15, c0: [0.6, 0.75, 1, 0.7], c1: [0.3, 0.4, 1, 0] });
+    }
+  }
+  target() { return { id: 'D', kind: 'boss', x: this.x, y: this.y, z: this.z, r: 0.7 * DEATH_SCALE, h: 2.2 * DEATH_SCALE, view: this }; }
+  dispose() { this.scene.remove(this.model); }
+}
+
+export class NpcView {
+  constructor(scene, row, ownerName) {
+    this.scene = scene;
+    this.id = row[0];
+    this.type = NPC_TYPES[row[1]];
+    this.def = NPCS[this.type];
+    const look = { sellsword: 'veteran', hunter: 'nyx', warden: 'scalefang', medic: 'veteran', cleric: 'bonelord' }[this.type] || 'veteran';
+    // Zombies (Zombie Staff) are the rotting mob-rig body, not a character avatar.
+    this.rig = this.type === 'zombie' ? makeMobRig('zombie' + (this.id % 6)) : null;
+    this.model = this.rig ? this.rig.root : makeCharacterModel(look, () => makeHumanoid({ color: this.def.color, accent: this.def.role === 'Support' ? 0x7dff8a : 0xff6a4a, cape: this.def.role === 'Support', hood: this.type === 'cleric' || this.type === 'medic', skin: 0xb08a6a }));
+    const w = { sellsword: 'sword', zombie: null, hunter: 'dmr', warden: 'axe', medic: 'pistol', cleric: null }[this.type];
+    if (!this.rig) this.model.userData.setWeapon(w);
+    this.gun = this.type === 'hunter' || this.type === 'medic';
+    this.plate = makeNameplate((ownerName ? ownerName + "'s " : '') + this.def.name, this.def.role === 'Support' ? '#7dff8a' : '#ffb08a');
+    this.plate.position.y = 2.3;
+    this.plate.scale.set(2.4, 0.6, 1);
+    if (this.def.summoned) this.plate.visible = false; // five zombies would bury the screen in nameplates
+    this.model.add(this.plate);
+    this.bar = hpBar(1.0, barFgNpc);
+    this.bar.position.y = 2.05;
+    this.model.add(this.bar);
+    scene.add(this.model);
+    this.x = row[3] / 10; this.z = row[4] / 10; this.y = 0;
+    this.tx = this.x; this.tz = this.z; this.yaw = 0; this.t = 0; this.anim = 0; this.spawnT = 0;
+    this.vh = this.rig ? MOB_LOOKS.zombie0.h : 1.9;
+    if (this.rig) this.bar.position.y = this.vh + 0.3;
+  }
+  apply(row) { this.tx = row[3] / 10; this.tz = row[4] / 10; this.hp = row[5] / 100; this.tyaw = row[6] / 10; this.anim = Math.max(this.anim, row[7] / 9); }
+  update(dt, world, camera, fx) {
+    this.t += dt;
+    this.spawnT += dt;
+    const ox = this.x, oz = this.z;
+    if (Math.hypot(this.tx - this.x, this.tz - this.z) > 20) { this.x = this.tx; this.z = this.tz; }
+    const k = Math.min(1, dt * 10);
+    this.x += (this.tx - this.x) * k; this.z += (this.tz - this.z) * k;
+    const speed = Math.hypot(this.x - ox, this.z - oz) / Math.max(dt, 1e-3);
+    this.y = world.heightAt(this.x, this.z);
+    this.yaw = lerpA(this.yaw, this.tyaw ?? 0, Math.min(1, dt * 8));
+    // A summoned zombie claws up out of the ground over ~0.7 s once the pit has opened, still and groaning as it rises.
+    const rise = this.rig ? Math.min(1, Math.max(0, (this.spawnT - 0.15) / 0.7)) : 1, er = 1 - (1 - rise) ** 3;
+    this.model.position.set(this.x, this.y - (1 - er) * this.vh * 1.05 * (this.size || 1), this.z);
+    this.model.rotation.y = this.yaw;
+    if (this.rig && this.size) this.model.scale.setScalar(this.size); // duel: summoned zombies are twice as big
+    this.anim = Math.max(0, this.anim - dt * 3);
+    if (this.rig) {
+      this.rig.update({ speed: rise < 1 ? 0 : speed, attack: rise < 1 ? 0 : this.anim, frozen: 0 }, dt, 0);
+      if (fx) this.hellFx(dt, fx, rise);
+    } else this.model.userData.anim({ speed, gun: this.gun, weapon: true, melee: !this.gun && this.anim > 0 ? 1 - this.anim : 0, cast: this.type === 'cleric' && this.anim > 0 ? 1 : 0 }, dt, this.t);
+    setBar(this.bar, this.hp ?? 1, camera);
+  }
+  // Hell-fire clinging to a zombie: small flames and embers streaming off the shoulders and back, a smoulder of smoke and a
+  // red-orange glow behind the burning eyes.
+  hellFx(dt, fx, rise) {
+    const H = this.vh, R = () => Math.random() - 0.5, y = this.model.position.y;
+    const k = rise < 0.5 ? 0.3 : 1;
+    if (Math.random() < 0.3 * k) fx.fire.emit({ p: [this.x + R() * 0.6, y + H * (0.55 + Math.random() * 0.4), this.z + R() * 0.6], v: [R() * 0.8, 1.2 + Math.random() * 1.2, R() * 0.8], life: 0.45, s0: 0.38, s1: 0.06, c0: [1, 0.5, 0.1, 0.9], c1: [0.8, 0.1, 0.02, 0], turb: 2.5 });
+    if (Math.random() < 0.3 * k) fx.spark.emit({ p: [this.x + R() * 0.5, y + H * (0.4 + Math.random() * 0.5), this.z + R() * 0.5], v: [R() * 1.5, 1 + Math.random() * 2, R() * 1.5], life: 0.9, s0: 0.07, s1: 0.02, c0: [1, 0.55, 0.15, 1], c1: [1, 0.2, 0, 0], turb: 2 });
+    if (Math.random() < 0.07 * k) fx.smoke.emit({ p: [this.x + R() * 0.4, y + H * 0.8, this.z + R() * 0.4], v: [0, 0.9, 0], life: 1.3, s0: 0.35, s1: 1.1, c0: [0.1, 0.07, 0.06, 0.4], c1: [0.1, 0.1, 0.1, 0] });
+    // eye glow, from the head bone
+    const hd = this.rig.bn.head;
+    if (hd) {
+      const e = this._eye || (this._eye = { p: new THREE.Vector3(), q: new THREE.Quaternion(), v: new THREE.Vector3() }), s = H / 1.8;
+      hd.getWorldPosition(e.p); hd.getWorldQuaternion(e.q);
+      for (const sx of [-1, 1]) { e.v.set(sx * 0.035 * s, 0.07 * s, 0.085 * s).applyQuaternion(e.q).add(e.p); fx.glow.emit({ p: [e.v.x, e.v.y, e.v.z], life: 0.06, s0: 0.14, s1: 0.14, c0: [0.9, 0.85, 0.5, 0.22], c1: [0.9, 0.85, 0.5, 0.15] }); }
+    }
+  }
+  chest() { return [this.x, this.y + 1.4, this.z]; }
+  dispose() { this.scene.remove(this.model); }
+}
