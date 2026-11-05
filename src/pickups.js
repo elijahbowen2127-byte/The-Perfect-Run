@@ -25,7 +25,6 @@ function shared() {
 
 // Perfect Point shards: short-lived crystals that surface at random during a round.
 const SHARD_LIFE = 22;
-const COIN_SOFT = 60; // above this many coins on the floor, crowded ones merge
 const PP_CSS = `
 .pp-chip { position: absolute; right: 74px; top: 242px; display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 6px; border-radius: 999px; background: rgba(12,8,22,.7); border: 1px solid rgba(181,140,255,.45); color: #e9dcff; font: 700 15px/1 var(--ui, system-ui), sans-serif; pointer-events: none; z-index: 14; transition: transform .15s; }
 .pp-chip img { width: 18px; height: 18px; }
@@ -105,7 +104,7 @@ export class HealthPickups {
     const g = this.game;
     if (!g.world || amount <= 0) return;
     const cg = (this._cg = this._cg || new THREE.CylinderGeometry(0.2, 0.2, 0.05, 14).rotateX(Math.PI / 2));
-    const cm = this.coinMat(0);
+    const cm = (this._cm = this._cm || new THREE.MeshStandardMaterial({ color: 0xffc83a, emissive: 0xff9a10, emissiveIntensity: 1.1, metalness: 0.8, roughness: 0.25 }));
     n = Math.max(1, Math.min(n, amount));
     const each = Math.floor(amount / n), extra = amount - each * n;
     for (let i = 0; i < n; i++) {
@@ -113,49 +112,10 @@ export class HealthPickups {
       const px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, y = g.world.heightAt(px, pz);
       const m = new THREE.Mesh(cg, cm); m.scale.setScalar(n === 1 ? 1 : 1.15);
       m.position.set(x, y + 1, z); g.scene.add(m);
-      this.coins.push({ m, x: px, z: pz, y, fx: x, fz: z, t: 0, val: each + (i === 0 ? extra : 0), ph: Math.random() * 6, tier: 0 });
+      this.coins.push({ m, x: px, z: pz, y, fx: x, fz: z, t: 0, val: each + (i === 0 ? extra : 0), ph: Math.random() * 6 });
       g.fx.glow.emit({ p: [px, y + 0.8, pz], life: 0.35, s0: 0.7, s1: 0.2, c0: [1, 0.85, 0.3, 0.9], c1: [1, 0.6, 0.1, 0] });
     }
-    if (this.coins.length > COIN_SOFT) this.mergeCoins();
-  }
-
-  // Coins never expire. gold = a plain coin, green = several piled into one, red = a lot piled into one.
-  coinMat(tier) {
-    this._mats = this._mats || {};
-    if (!this._mats[tier]) {
-      const c = [[0xffc83a, 0xff9a10], [0x4cff6a, 0x12b83a], [0xff3b30, 0xc0100a]][tier];
-      this._mats[tier] = new THREE.MeshStandardMaterial({ color: c[0], emissive: c[1], emissiveIntensity: 1.1, metalness: 0.8, roughness: 0.25 });
-    }
-    return this._mats[tier];
-  }
-
-  // Too many coins on the floor slows the game, so crowded ones fuse into one bigger coin (same total PC) near where they lay.
-  mergeCoins() {
-    const g = this.game, p = g.player, CELL = 7;
-    for (let pass = 0; pass < 6 && this.coins.length > COIN_SOFT * 0.7; pass++) {
-      const cells = new Map();
-      for (const k of this.coins) {
-        if (k.t < 1.2) continue; // still popping out
-        if (p && Math.hypot(p.pos.x - k.x, p.pos.z - k.z) < 6) continue; // never under your feet
-        const key = Math.floor(k.x / CELL) + ',' + Math.floor(k.z / CELL);
-        let c = cells.get(key); if (!c) cells.set(key, (c = [])); c.push(k);
-      }
-      const groups = [...cells.values()].filter((c) => c.length > 1).sort((a, b) => b.length - a.length);
-      if (!groups.length) break;
-      for (const grp of groups) {
-        if (this.coins.length <= COIN_SOFT * 0.7) break;
-        let val = 0, x = 0, z = 0, tier = 0;
-        for (const k of grp) { val += k.val; x += k.x * k.val; z += k.z * k.val; tier = Math.max(tier, k.tier); g.scene.remove(k.m); }
-        x /= val; z /= val;
-        const gone = new Set(grp); this.coins = this.coins.filter((k) => !gone.has(k));
-        tier = tier >= 1 || val >= 80 ? 2 : 1; // plain coins fuse to green; a pile of piles (or a big sum) goes red
-        const y = g.world.heightAt(x, z);
-        const m = new THREE.Mesh(this._cg, this.coinMat(tier)); m.scale.setScalar([1, 1.5, 1.9][tier]);
-        m.position.set(x, y + 1, z); g.scene.add(m);
-        this.coins.push({ m, x, z, y, fx: x, fz: z, t: 1, val, ph: Math.random() * 6, tier });
-        g.fx.glow.emit({ p: [x, y + 0.9, z], life: 0.35, s0: 1.2, s1: 0.3, c0: tier === 2 ? [1, 0.3, 0.2, 0.9] : [0.4, 1, 0.5, 0.9], c1: [0.2, 1, 0.3, 0] });
-      }
-    }
+    while (this.coins.length > 90) this.game.scene.remove(this.coins.shift().m); // too many on the floor: the oldest vanish
   }
 
   collectCoin(k, quiet = false) {
@@ -180,7 +140,9 @@ export class HealthPickups {
       }
       k.m.position.set(x, k.y + 0.8 + Math.sin(pop * Math.PI) * 1.4 + Math.sin(k.t * 3 + k.ph) * 0.08, z);
       k.m.rotation.y += dt * 4;
+      k.m.visible = k.t < 38 || Math.floor(k.t * 6) % 2 === 0;
       if (k.t > 0.35 && p && p.alive && Math.hypot(p.pos.x - k.x, p.pos.z - k.z) < reach) { this.coins.splice(i, 1); this.collectCoin(k); }
+      else if (k.t > 44) { this.coins.splice(i, 1); g.scene.remove(k.m); } // uncollected coins fade away
     }
   }
 
@@ -244,12 +206,9 @@ export class HealthPickups {
   }
 
   clear() {
-    // PC never vanishes: coins still lying about when the round ends go into the purse.
-    const pl = this.game.player;
-    if (pl) for (const k of this.coins) { pl.pc += k.val; this.game.runStats.pcEarned += k.val; }
     for (const k of this.list) this.game.scene.remove(k.grp);
     for (const k of this.shards) this.game.scene.remove(k.grp);
-    for (const k of this.coins) this.game.scene.remove(k.m); 
+    for (const k of this.coins) this.game.scene.remove(k.m); // coins left on the floor are simply lost
     this.list.length = 0; this.shards.length = 0; this.coins.length = 0;
     this.ppT = 8 + Math.random() * 8;
   }

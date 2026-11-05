@@ -3,6 +3,31 @@
 // cavity tint and a roughness variation. Vertex colours still carry the base colour and baked occlusion.
 //   real('steel' | 'plate' | 'gilt' | 'cloth' | 'wool' | 'silk' | 'leather' | 'lacquer' | 'felt' | 'rope' | 'bone', { scale, bump })
 import * as THREE from 'three';
+import { SCAN_ON } from './scan.js';
+
+// Photo-scanned surfaces (Poly Haven CC0) laid over each kind: triplanar in object space, they add real
+// weave, grain, pores and wear on top of the hand-picked vertex colours. ?surf=0 off, 1 normal, 2 strong.
+const SURF = SCAN_ON ? +(new URLSearchParams(location.search).get('surf') ?? 2) : 0; // Nutty picked "strong" (2) on 2026-11-05; ?surf=3 adds strong + cloth folds, grime and gloss break-up (anti-clay pass)
+const SCAN_SURF = {
+  steel: { id: 'metal_plate_02', tile: 0.55, k: 0.55 }, plate: { id: 'metal_plate', tile: 0.6, k: 0.7 }, gilt: { id: 'metal_plate_02', tile: 0.55, k: 0.45 },
+  cloth: { id: 'rough_linen', tile: 0.32, k: 0.8 }, wool: { id: 'poly_wool_herringbone', tile: 0.38, k: 0.8 }, silk: { id: 'velour_velvet', tile: 0.45, k: 0.6 },
+  leather: { id: 'brown_leather', tile: 0.4, k: 0.85 }, felt: { id: 'curly_teddy_natural', tile: 0.3, k: 0.7 }, rope: { id: 'hessian_230', tile: 0.18, k: 0.8 },
+  lacquer: { id: 'metal_plate_02', tile: 0.6, k: 0.25 },
+};
+const surfTex = new Map();
+let surfAvg = null;
+const surfAvgP = SURF ? fetch('assets/scan/mats.json').then((r) => r.json()).then((j) => (surfAvg = j)).catch(() => null) : null;
+function surfUniforms(id) {
+  if (surfTex.has(id)) return surfTex.get(id);
+  const u = { rmTex: { value: null }, rmOn: { value: 0 }, rmAvg: { value: new THREE.Vector3(0.5, 0.5, 0.5) } };
+  const t = new THREE.TextureLoader().load('assets/scan/' + id + '_m.webp', () => {
+    Promise.resolve(surfAvgP).then(() => { const a = surfAvg && surfAvg[id]; if (a) u.rmAvg.value.set(a[0], a[1], a[2]); u.rmOn.value = 1; });
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  u.rmTex.value = t;
+  surfTex.set(id, u);
+  return u;
+}
 
 const KINDS = {
   // plate steel: forged and polished, with fine brushing, shallow hammer dents and scratches
@@ -68,25 +93,52 @@ export function real(kind = 'steel', { scale, bump, rough, metal } = {}) {
   const sc = (scale || 1) * K.sc, bp = (bump == null ? 1 : bump) * K.bump;
   const Mat = K.clear ? THREE.MeshPhysicalMaterial : THREE.MeshStandardMaterial;
   const m = new Mat({ vertexColors: true, color: 0xffffff, metalness: metal ?? K.metal, roughness: rough ?? K.rough });
+  const SS = SURF && SCAN_SURF[kind];
+  const su = SS ? surfUniforms(SS.id) : null;
+  const sk = SS ? Math.min(1, SS.k * (SURF >= 2 ? 1.5 : 1)) : 0, tile = SS ? (SS.tile / (scale || 1)).toFixed(3) : '1.0';
   if (K.clear) { m.clearcoat = K.clear; m.clearcoatRoughness = K.ccr ?? 0.08; }
   if (K.sheen) { m.sheen = K.sheen; m.sheenRoughness = 0.5; m.sheenColor = new THREE.Color(0.7, 0.7, 0.7); }
+  // Anti-clay pass (SURF 3): soft goods get draping folds and crumples with dark fold valleys; hard goods get
+  // smudged, uneven gloss and grime in their recesses, so no surface reads as one smooth moulded colour.
+  const soft = K.metal < 0.2 && kind !== 'lacquer' && kind !== 'bone' && kind !== 'skin';
+  const FOLD = SURF >= 3 ? (kind === 'leather' ? 0.006 : soft ? 0.013 : 0) : 0;
+  const GLOSS = SURF >= 3 ? (K.metal > 0.5 || kind === 'lacquer' ? 0.55 : 0.25) : 0;
   m.onBeforeCompile = (sh) => {
+    if (su) Object.assign(sh.uniforms, su);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 rmP; varying vec3 rmN;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nrmP = position; rmN = normal;');
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + GLSL)
+      .replace('#include <common>', '#include <common>\n' + GLSL + (su ? 'uniform sampler2D rmTex; uniform float rmOn; uniform vec3 rmAvg;' : ''))
       .replace('#include <color_fragment>', `#include <color_fragment>
         vec3 rmW = pow(abs(normalize(rmN)), vec3(4.0)); rmW /= (rmW.x + rmW.y + rmW.z);
         rmH = rHeight(rmP, rmW, ${hk}, ${sc.toFixed(3)});
+        ${su ? `if (rmOn > 0.5) {
+          vec3 q = rmP / ${tile};
+          vec4 sx = texture2D(rmTex, q.zy), sy = texture2D(rmTex, q.xz), sz = texture2D(rmTex, q.xy);
+          vec4 sc4 = sx * rmW.x + sy * rmW.y + sz * rmW.z;
+          vec3 det = clamp(sc4.rgb / max(rmAvg, vec3(0.05)), 0.0, 2.2);
+          diffuseColor.rgb *= mix(vec3(1.0), mix(vec3(dot(det, vec3(0.333))), det, 0.35), ${sk.toFixed(2)});
+          rmH = mix(rmH, sc4.a, ${(sk * 0.85).toFixed(2)});
+        }` : ''}
+        float rmF = 0.5, rmG = 0.5;
+        ${FOLD ? `{ vec3 fp = rmP;
+          float dr = rn3(vec3(fp.x * 6.5, fp.y * 1.3, fp.z * 6.5) + 3.7); dr = 1.0 - abs(dr * 2.0 - 1.0);
+          float dr2 = rn3(vec3(fp.x * 13.0, fp.y * 2.6, fp.z * 13.0) + 9.1); dr2 = 1.0 - abs(dr2 * 2.0 - 1.0);
+          float cr = rfbm(fp * 18.0 + 1.3);
+          rmF = dr * 0.55 + dr2 * 0.25 + cr * 0.2;
+          diffuseColor.rgb *= 0.72 + 0.4 * smoothstep(0.15, 0.85, rmF); }` : ''}
+        ${GLOSS ? `rmG = rfbm(rmP * 3.1 + 5.0) * 0.7 + rfbm(rmP * 11.0) * 0.3;
+          diffuseColor.rgb *= 1.0 - ${(GLOSS * 0.35).toFixed(2)} * smoothstep(0.55, 0.85, rmG) * (1.0 - smoothstep(0.35, 0.6, rmH));` : ''}
         float rmCav = rmH - 0.5;
         diffuseColor.rgb *= 1.0 + rmCav * ${K.cav.toFixed(2)};`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-        roughnessFactor = clamp(roughnessFactor * (1.0 + (rmH - 0.5) * ${(K.rv * 2).toFixed(2)}), 0.04, 1.0);`)
+        roughnessFactor = clamp(roughnessFactor * (1.0 + (rmH - 0.5) * ${(K.rv * 2).toFixed(2)}) + (rmG - 0.5) * ${(GLOSS * 0.9).toFixed(2)}, 0.04, 1.0);`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-        normal = rPerturb(-vViewPosition, normal, vec2(dFdx(rmH), dFdy(rmH)) * ${(bp * 0.6).toFixed(3)} * 9.0, faceDirection);`);
+        normal = rPerturb(-vViewPosition, normal, vec2(dFdx(rmH), dFdy(rmH)) * ${(bp * 0.6).toFixed(3)} * 9.0, faceDirection);
+        ${FOLD ? `normal = rPerturb(-vViewPosition, normal, vec2(dFdx(rmF), dFdy(rmF)) * ${(FOLD * 1.0).toFixed(4)} * 60.0, faceDirection);` : ''}`);
   };
-  m.customProgramCacheKey = () => 'real' + key;
+  m.customProgramCacheKey = () => 'real' + key + (su ? 's' + SURF : '');
   cache.set(key, m);
   return m;
 }

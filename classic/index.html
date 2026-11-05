@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Perfect Run</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="loading" class="on"><div class="ld-logo">THE PERFECT RUN</div><div class="ld-bar"><i></i></div><div class="ld-text">Forging the world…</div></div>
+<div class="seat" id="seat1" data-screen="s-title">
+<canvas class="game-canvas"></canvas>
+<div class="seat-tag"><b>PLAYER 1</b><span></span></div>
+
+
+<!-- ============ TITLE ============ -->
+<section class="screen" id="s-title">
+  <div class="title-wrap">
+    <div class="logo">
+      <h1><em>The</em>PERFECT<span>RUN</span></h1>
+    </div>
+    <div class="menu">
+      <div class="fire-ring" id="fire-ring"><i></i><i></i><i></i></div>
+      <label class="name-field"><span>Your name</span><input id="name" maxlength="16" autocomplete="off" spellcheck="false"></label>
+      <button class="btn primary" id="btn-solo">Play Solo</button>
+      <button class="btn" id="btn-create">Create Party</button>
+      <button class="btn" id="btn-join">Join Party</button>
+      <button class="btn" id="btn-couch">Couch Co-op <small>split-screen · 2 players</small></button>
+      <button class="btn duel-btn" id="btn-duel">Duel Arena <small>1v1 in a random arena · vs CPU or a friend</small></button>
+      <button class="btn pshop-btn" id="btn-pshop">Perfect Shop <small>permanent power-ups · <b id="title-pp">0</b> PP</small></button>
+      <button class="btn unlocks-btn" id="btn-unlocks">Unlockables <small>Gear &amp; More!</small></button>
+      <div class="view-toggle" id="view-toggle"><span>Camera</span><button data-view="first">First person</button><button data-view="third">Third person</button></div>
+      <div class="menu-row">
+      <button class="btn small" id="btn-help">How to play</button>
+        <button class="btn small" id="btn-settings">Settings</button>
+        <button class="btn small fs-toggle">Fullscreen</button>
+      </div>
+    </div>
+    <div id="records" class="records"></div>
+  </div>
+</section>
+
+<!-- ============ DUEL CHOOSER ============ -->
+<section class="screen" id="s-duel">
+  <div class="panel duelpick">
+    <h2>Duel Arena <small>1000 health each · 10 minutes · a new power-up every 30 seconds</small></h2>
+    <p class="muted">Pick any character, any two weapons and your element. Every 30 seconds the fight freezes and you both choose one of five attack power-ups. First one down loses.</p>
+    <div class="duel-opts">
+      <button class="btn primary big" id="duel-cpu"><b>Versus the CPU</b><small>Solo, one bot opponent</small></button>
+      <button class="btn big" id="duel-couch"><b>Two players, one screen</b><small>Split-screen couch versus</small></button>
+      <button class="btn big" id="duel-online"><b>Online versus</b><small>Create a party, then pick Duel Arena in the lobby</small></button>
+    </div>
+    <button class="btn small ghost" data-back="s-title">Back</button>
+  </div>
+</section>
+
+<!-- ============ COUCH SETUP ============ -->
+<section class="screen" id="s-couch">
+  <div class="panel couch">
+    <h2>Couch setup <small>two players, one screen</small></h2>
+    <div class="couch-split" aria-hidden="true"><div class="cs-p1"><b>PLAYER 1</b><span>Left half</span></div><div class="cs-p2"><b>PLAYER 2</b><span>Right half</span></div></div>
+    <div class="couch-cards">
+      <div class="couch-card p1">
+        <div class="cc-head"><b class="seat-pill p1">PLAYER 1</b></div>
+        <div class="cc-dev" id="cc-p1-dev">Keyboard + Mouse</div>
+        <div class="chip ok" id="cc-p1-chip">Ready</div>
+        <ul class="cc-keys" id="cc-p1-keys"></ul>
+      </div>
+      <div class="couch-card p2">
+        <div class="cc-head"><b class="seat-pill p2">PLAYER 2</b><span class="cc-seg" id="cc-p2-seg"><button data-dev="pad">Controller</button><button data-dev="kb">Keyboard</button></span></div>
+        <div class="cc-dev" id="cc-p2-dev">Controller</div>
+        <div class="chip warn" id="cc-p2-chip"></div>
+        <ul class="cc-keys" id="cc-p2-keys"></ul>
+      </div>
+    </div>
+    <p class="couch-note" id="couch-note"></p>
+    <button class="btn primary big" id="couch-start">Start couch co-op</button>
+    <button class="btn small ghost" id="couch-back" data-back="s-title">Back</button>
+    <p class="couch-tip">Menus: D-pad or stick to move, <kbd>A</kbd> to select, <kbd>B</kbd> to go back. Press <kbd>F11</kbd> for fullscreen.</p>
+  </div>
+</section>
+
+<!-- ============ JOIN ============ -->
+<section class="screen" id="s-join">
+  <div class="panel narrow">
+    <h2>Join a party</h2>
+    <p class="muted" id="net-note"></p>
+    <div id="party-list" class="party-list"></div>
+    <div class="code-row">
+      <input id="join-code" placeholder="CODE" maxlength="5" autocomplete="off" spellcheck="false">
+      <button class="btn primary" id="join-go">Join</button>
+    </div>
+    <button class="btn small ghost" data-back="s-title">Back</button>
+  </div>
+</section>
+
+<!-- ============ LOBBY ============ -->
+<section class="screen" id="s-lobby">
+  <div class="lobby">
+    <div class="lobby-left panel">
+      <h2 id="lobby-title">Party</h2>
+      <p class="couch-help" id="couch-help">Pick a character and 2 weapons, then Ready up.</p>
+      <div class="couch-warn" id="couch-warn"></div>
+      <div id="invite" class="invite">
+        <div class="inv-code" id="invite-code"></div>
+        <button class="btn small" id="invite-copy">Copy invite</button>
+        <p class="muted" id="invite-hint"></p>
+      </div>
+      <div id="members" class="members"></div>
+      <label class="field couch-name"><span>Your name</span><input id="couch-name" maxlength="16" autocomplete="off" spellcheck="false"></label>
+      <label class="field" id="mode-field"><span>Game mode</span>
+        <select id="game-mode"><option value="run">Co-op run (six rounds)</option><option value="duel">Duel Arena (1v1, random arena)</option></select>
+      </label>
+      <label class="field check" id="cpu-field"><input type="checkbox" id="cpu-play"><span>CPU Run</span></label>
+      <label class="field" id="round-field"><span>Round length</span>
+        <select id="round-len"><option value="10">10 minutes (standard)</option></select>
+      </label>
+      <label class="field" id="diff-field"><span>Difficulty</span>
+        <select id="difficulty"><option value="normal">Normal</option><option value="hard">Hard (win it to unlock a secret map)</option></select>
+      </label>
+      <button class="btn primary big" id="btn-ready">Start the run</button>
+      <button class="btn small ghost" id="btn-leave">Leave</button>
+      <div class="couch-pad" id="couch-pad"></div>
+    </div>
+    <div class="lobby-mid">
+      <div id="stage-name" class="stage-name"></div>
+      <div id="class-detail" class="class-detail panel"></div>
+    </div>
+    <div class="lobby-right panel">
+      <div class="steps"><button class="step" id="step-1" data-step="1"><b>1</b> Character</button><i></i><button class="step" id="step-2" data-step="2"><b>2</b> Weapon Wall</button><i></i><span class="step" id="step-3"><b>3</b> Ready</span></div>
+      <div id="pick-char" class="pick">
+        <h2>Choose your character</h2>
+        <div id="char-cards" class="char-cards"></div>
+        <h3 class="sub">Skin <small id="skin-sub">free for now</small></h3>
+        <div id="skin-row" class="skin-row"></div>
+        <h3 class="sub">Element <small>your abilities</small></h3>
+        <div id="class-cards" class="class-cards"></div>
+        <button class="btn primary big" id="btn-to-wall">Continue to the Weapon Wall</button>
+      </div>
+      <div id="pick-wall" class="pick">
+        <h2>Weapon Wall <small>2 weapons and 1 piece of gear</small></h2>
+        <div class="slots"><div class="slot" id="slot-0"><span>Primary</span><b>Empty</b></div><div class="slot" id="slot-1"><span>Secondary</span><b>Empty</b></div><div class="slot" id="slot-2"><span>Gear</span><b>Empty</b></div></div>
+        <div id="wall" class="wall"></div>
+        <button class="btn small ghost" id="btn-to-char">Back to characters</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ UNLOCKABLES ============ -->
+<section class="screen" id="s-unlocks">
+  <div class="panel unlocks">
+    <h2>Unlockables</h2>
+    <p class="muted" id="ul-sub"></p>
+    <div id="ul-grid" class="ul-grid"></div>
+    <button class="btn small ghost" data-back="s-title">Back</button>
+  </div>
+</section>
+
+<!-- ============ HELP ============ -->
+<section class="screen" id="s-help">
+  <div class="panel help">
+    <h2>How to play</h2>
+    <div class="help-grid">
+      <div><h3>Controls</h3>
+        <ul class="keys">
+          <li><kbd>W A S D</kbd> Move · <kbd>Shift</kbd> Sprint · <kbd>Space</kbd> Jump · <kbd>X</kbd> Dash</li>
+          <li><kbd>Mouse</kbd> Aim · <kbd>Left click</kbd> Attack</li>
+          <li><kbd>Q</kbd> / <kbd>G</kbd> Element abilities · <kbd>F</kbd> Ultimate · <kbd>Right click</kbd> / <kbd>C</kbd> Aim, or block with a shield</li>
+          <li><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> / <kbd>Wheel</kbd> Swap weapon · <kbd>R</kbd> Reload</li>
+          <li><kbd>Space</kbd> again in the air: Web Swing (hold to hang on, let go to fly) · double-tap: Jetpack</li>
+          <li><kbd>E</kbd> Open crate / use altar · <kbd>B</kbd> Place bed</li>
+          <li><kbd>Tab</kbd> Shop · <kbd>C</kbd> Close camera · <kbd>V</kbd> First / third person · <kbd>Esc</kbd> Menu</li>
+        </ul>
+      </div>
+      <div><h3>The run</h3>
+        <ul>
+          <li>6 rounds, each a new generated map with its own boss. Round 6 ends with <b>Thermes</b>, a demonic viking deity.</li>
+          <li>There is no leaving early. Each round lasts <b>10 minutes</b>; when the clock hits zero <b>Death</b> hunts you and the altar unseals. <b id="help-altar">Hold E</b> at the altar to summon the boss.</li>
+          <li>Kills pay <b>2 PC</b>. Bosses pay <b>200 PC</b> and let you pick 1 of <b>9 Deity Blessings</b>.</li>
+          <li>Spend PC on <b>crates</b> (random power-ups), and <b>beds</b> (respawns).</li>
+          <li>You start with <b>1 bed</b>. Place it, and you respawn there once.</li>
+        </ul>
+      </div>
+    </div>
+    <button class="btn small ghost" data-back="s-title">Back</button>
+  </div>
+</section>
+
+<!-- ============ PERFECT SHOP ============ -->
+<section class="screen" id="s-pshop">
+  <div class="pshop">
+    <div class="pshop-head">
+      <div>
+        <h2>The Perfect Shop</h2>
+        <p class="muted">The Archivist trades in memories. Every blow, every round and every death leaves a crystal behind. Spend them, and your next run remembers.</p>
+      </div>
+      <div class="pshop-bal"><img class="pp-gem" alt=""><b id="pshop-pp">0</b><span>Perfect Points</span></div>
+    </div>
+    <div id="pshop-grid" class="pshop-grid"></div>
+    <div class="pshop-foot">
+      <button class="btn small ghost" id="pshop-back" data-back="s-title">Back</button>
+      <button class="btn small" id="pshop-refund">Refund all</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<section class="screen" id="s-settings">
+  <div class="panel settings">
+    <h2>Settings</h2>
+    <div class="set-grid">
+      <div class="set-group"><h3>Controls</h3>
+        <label class="field"><span>Controller layout <small>what the button prompts show</small></span>
+          <select id="set-layout"><option value="ds">DualShock (PlayStation)</option><option value="xbox">Xbox controller</option><option value="kb">Mouse and keyboard</option></select>
+        </label>
+        <label class="field"><span>Look sensitivity <em id="sens-val"></em></span><input type="range" id="set-sens" min="0.2" max="3" step="0.05"></label>
+        <label class="field"><span>Aim-down-sights sensitivity <em id="sens-ads-val"></em></span><input type="range" id="set-sens-ads" min="0.3" max="1.5" step="0.05"></label>
+        <label class="check"><input type="checkbox" id="set-invert"> Invert vertical look</label>
+        <label class="field"><span>Camera</span><select id="set-view"><option value="third">Third person</option><option value="first">First person</option></select></label>
+      </div>
+      <div class="set-group"><h3>Audio</h3>
+        <label class="field"><span>Master volume <em id="vol-val"></em></span><input type="range" id="set-vol" min="0" max="1" step="0.05"></label>
+        <label class="check"><input type="checkbox" id="set-music"> Music</label>
+        <label class="field"><span>Music volume <em id="music-vol-val"></em></span><input type="range" id="set-music-vol" min="0" max="1" step="0.05"></label>
+        <label class="check"><input type="checkbox" id="set-sfx"> Sound effects</label>
+      </div>
+      <div class="set-group"><h3>Display</h3>
+        <label class="field"><span>Graphics quality</span>
+          <select id="set-quality"><option value="high">High (bloom, sharp shadows)</option><option value="medium">Medium</option><option value="low">Low (fastest)</option></select>
+        </label>
+        <p class="muted" id="quality-note">Reload to apply. <button class="link" id="quality-reload">Reload now</button></p>
+        <label class="field"><span>Field of view <em id="fov-val"></em></span><input type="range" id="set-fov" min="55" max="105" step="1"></label>
+        <label class="check"><input type="checkbox" id="set-shake"> Screen shake</label>
+        <label class="check"><input type="checkbox" id="set-dmgnums"> Damage numbers</label>
+        <label class="check"><input type="checkbox" id="set-blood"> Blood splatter on your screen when hit</label>
+        <label class="check"><input type="checkbox" id="set-fps"> Show FPS</label>
+        <button class="btn small fs-toggle">Fullscreen</button>
+        <p class="muted fs-hint">Shortcut: F11 or Alt+Enter.</p>
+      </div>
+    </div>
+    <button class="btn small ghost" id="settings-back" data-back="s-title">Back</button>
+  </div>
+</section>
+
+<!-- ============ HUD ============ -->
+<div id="hud">
+  <div id="scope"></div>
+  <div id="wind"></div>
+  <div id="topbar">
+    <div id="round-label"></div>
+    <div id="timer"></div>
+    <div id="phase-hint"></div>
+    <div id="xpbar"><i id="xp-fill"></i><span id="xp-text"></span></div>
+  </div>
+  <div id="bossbar"><div id="boss-name"></div><div class="bb"><i id="boss-fill"></i></div></div>
+  <div id="party"></div>
+  <div id="killfeed"></div>
+  <div id="mm-wrap">
+    <canvas id="minimap" width="200" height="200"></canvas>
+    <div id="econ">
+      <div class="pc"><img class="coin-img" alt=""><b id="pc">0</b><em id="coinpop"></em></div>
+      <div class="kills"><b id="kills">0</b> kills</div>
+    </div>
+  </div>
+  <div id="vitals">
+    <div id="blessings"></div>
+    <div id="powerups"></div>
+    <div id="jetfuel"><i id="jet-fill"></i><span>JETPACK · double-tap Jump · Shift / L3 descend</span></div>
+    <div id="energybar"><i id="energy-fill"></i><span id="energy-text"></span></div>
+    <div class="hp"><i id="hp-fill"></i><i id="hp-shield"></i><span id="hp-text"></span></div>
+    <div class="beds"><svg viewBox="0 0 24 24"><path d="M3 18v-8h2v4h14a2 2 0 0 1 2 2v2h-2v-2H5v2zm4-5a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm4-3h7a2 2 0 0 1 2 2v1h-9z"/></svg><b id="beds">1</b><em id="bed-placed">placed</em></div>
+  </div>
+  <div id="weapons"><div class="wslot"><kbd>1</kbd><span class="ws-name"></span><span class="ws-ammo"></span><i class="ws-img"></i></div><div class="wslot"><kbd>2</kbd><span class="ws-name"></span><span class="ws-ammo"></span><i class="ws-img"></i></div><div class="wslot"><kbd>3</kbd><span class="ws-name"></span><span class="ws-ammo"></span><i class="ws-img"></i></div></div>
+  <div id="abilities">
+    <div class="ab-slot dash" id="ab-d"><div class="ab-icon"></div><div class="ab-cd"></div><kbd>X</kbd><div class="ab-name">Dash</div></div>
+    <div class="ab-slot" id="ab-q"><div class="ab-icon"></div><div class="ab-cd"></div><kbd>Q</kbd><div class="ab-name"></div></div>
+    <div class="ab-slot third" id="ab-e"><div class="ab-icon"></div><div class="ab-cd"></div><kbd>G</kbd><div class="ab-name"></div></div>
+    <div class="ab-slot ult" id="ab-r"><div class="ab-icon"></div><div class="ab-cd"></div><kbd>F</kbd><div class="ab-name"></div></div>
+  </div>
+  <div id="crosshair"><i></i><i></i><i></i><i></i></div>
+  <div id="hitmarker"></div>
+  <div id="prompt"></div>
+  <div id="cpuflag">CPU IS PLAYING · <b>P</b> take over · <b>T</b> speed</div>
+  <div id="fps"></div>
+</div>
+<div id="couch-keys" class="couch-keys"></div>
+<div id="dmgnums"></div>
+<div id="vignette"></div>
+<div id="healfx"></div>
+<div id="bloodfx"></div>
+<div id="demon-tint"></div>
+<div id="banner"><div id="banner-title"></div><div id="banner-sub"></div></div>
+<div id="toasts"></div>
+
+<div id="waiting" class="overlay"><div class="panel narrow center"><h2>Joining the run…</h2><p class="muted">Waiting for the host's world.</p></div></div>
+
+<div id="dead" class="overlay soft"><div class="center-msg"><h2 id="dead-title">You died</h2><p id="dead-sub"></p></div></div>
+
+<div id="pause" class="overlay">
+  <div class="panel narrow center">
+    <h2 id="pause-sub">Paused</h2>
+    <p class="muted" id="pause-note"></p>
+    <button class="btn primary" id="pause-resume">Resume</button>
+    <button class="btn" id="pause-settings">Settings</button>
+    <button class="btn fs-toggle">Fullscreen</button>
+    <div id="pause-share" class="share"></div>
+    <button class="btn ghost" id="pause-leave">Leave run</button>
+  </div>
+</div>
+
+<div id="spaceq" class="overlay soft">
+  <div class="vote-box">
+    <div class="vote-kicker">Thermes has fallen</div>
+    <h2 class="sq-title">A strange signal comes from the stars</h2>
+    <p class="muted sq-sub">A burning ship has crashed on a distant planet. Go to space for one more fight against The Visitor?</p>
+    <div class="vote-opts">
+      <button class="vote-opt fight" id="sq-yes"><b>Go to space</b><span>One bonus round on Crash Site Prime. Optional.</span></button>
+      <button class="vote-opt extract" id="sq-no"><b>End the run</b><span>Take the win now</span></button>
+    </div>
+    <div class="vote-warn" id="sq-wait"></div>
+  </div>
+</div>
+
+<div id="vote" class="overlay soft">
+  <div class="vote-box">
+    <div class="vote-kicker" id="vote-title">Time is up</div>
+    <div class="vote-time" id="vote-time">10</div>
+    <div class="vote-opts">
+      <button class="vote-opt fight" data-vote="f"><kbd>1</kbd><b>Fight</b><span>Face the boss for 20 PC and a Deity Blessing</span><em id="vote-f-n"></em></button>
+      <button class="vote-opt extract" id="vote-x" data-vote="x"><kbd>2</kbd><b>Extract</b><span>Leave safely for the next round</span><em id="vote-x-n"></em></button>
+    </div>
+    <div class="vote-warn">Choose nothing and the Demon Huntress comes for you.</div>
+  </div>
+</div>
+
+<div id="bless" class="overlay">
+  <div class="bless-box">
+    <div class="vote-kicker">The gods offer a blessing</div>
+    <h2>Choose a Deity Blessing</h2>
+    <div id="bless-cards" class="bless-cards"></div>
+  </div>
+</div>
+
+<div id="elem" class="overlay">
+  <div class="bless-box elem-box">
+    <div class="vote-kicker">Level up</div>
+    <h2>Choose an Element</h2>
+    <div id="elem-sub" class="elem-sub"></div>
+    <div id="elem-cards" class="bless-cards"></div>
+    <div id="elem-dice" class="elem-dice" title="Reroll these power-ups"><div class="die-shadow"></div><div class="die"><div class="cube"><i class="f1"><b></b></i><i class="f2"><b></b><b></b></i><i class="f3"><b></b><b></b><b></b></i><i class="f4"><b></b><b></b><b></b><b></b></i><i class="f5"><b></b><b></b><b></b><b></b><b></b></i><i class="f6"><b></b><b></b><b></b><b></b><b></b><b></b></i></div></div><button type="button" class="die-text"></button></div>
+  </div>
+</div>
+
+<div id="duelcount"></div>
+<div id="duelend" class="overlay">
+  <div class="panel duelend-box">
+    <div class="vote-kicker" id="de-kicker">Match over</div>
+    <h2 id="de-title">Victory</h2>
+    <p id="de-sub"></p>
+    <div id="de-stats" class="de-stats"></div>
+    <div class="de-btns">
+      <button class="btn primary big pad-first" id="de-rematch">Rematch</button>
+      <button class="btn big" id="de-lobby">Return to lobby</button>
+    </div>
+    <p class="muted" id="de-wait"></p>
+  </div>
+</div>
+
+<div id="shop" class="overlay">
+  <div class="panel shop">
+    <div class="shop-head"><h2>Shop</h2><div class="shop-pc"><img class="coin-img" alt=""><b id="shop-pc">0</b> PC</div></div>
+    <p class="muted">Spend your PC on beds and crates.</p>
+    <div id="shop-items" class="shop-items"></div>
+    <button class="btn small ghost" id="shop-close">Close (Tab)</button>
+  </div>
+</div>
+
+<div id="summary" class="overlay">
+  <div class="panel summary">
+    <div class="vote-kicker">Run complete</div>
+    <h2 id="sum-title">Run Over</h2>
+    <p id="sum-sub"></p>
+    <div id="sum-stats" class="sum-stats"></div>
+    <div id="sum-cpu" class="sum-cpu"></div>
+    <p class="muted" id="sum-records"></p>
+    <div class="menu-row">
+      <button class="btn primary" id="sum-lobby">Run it back</button>
+      <button class="btn" id="sum-menu">Go to main menu</button>
+    </div>
+    <p class="muted" id="sum-wait">Waiting for the host to start another run…</p>
+  </div>
+</div>
+
+<div id="busy" class="overlay"><div class="panel narrow center"><div class="spinner"></div><p id="busy-text"></p></div></div>
+
+</div>
+<div id="seats-split" class="split-line"></div>
+
+<div id="error" class="overlay"><div class="panel narrow center"><h2>Something went wrong</h2><p class="muted" id="error-text"></p><button class="btn" onclick="location.reload()">Reload</button></div></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

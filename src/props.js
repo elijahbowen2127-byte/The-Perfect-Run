@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { mulberry32 } from './rng.js';
 import * as TX from './textures.js';
 import { iceMat } from './elements.js';
+import { scanReady, scanGeo, scanMat, scanVariants } from './scan.js';
 import { rockGeo, softBox, tube, limbs, spray, clump, lathe, finish, paint, merge, noise3, setColor, clamp, lerp } from './geo.js';
 
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -160,8 +161,30 @@ export function propLibrary(biome, Q = 2) {
     if (caps || id === 'frozen') parts.push({ geo: capFaces(g, { seed: sd, lift: 0.06 }), mat: snowMat });
     return parts;
   });
-  lib.rock = () => ({ variants: rockVar([11, 12, 13], { mat: stone, tint: id === 'forest' ? [0.9, 1, 0.8] : null }), r: 1.0, s: [0.8, 2.6], sink: 0.28, n: 70 });
-  lib.snowrock = () => ({ variants: rockVar([31, 32], { mat: stone }, true), r: 1.1, s: [1, 3], sink: 0.3, n: 50 });
+  // Photo-scanned rocks (Poly Haven): mossy sets in green biomes, bare boulders elsewhere, tinted per biome.
+  const SCAN_TINT = { desert: [1.08, 0.94, 0.8], dunes: [1.1, 0.96, 0.82], frozen: [0.86, 0.9, 0.98], frost: [0.95, 1, 1.08], volcanic: [0.34, 0.31, 0.3], abyss: [0.5, 0.44, 0.66], space: [0.62, 0.42, 0.48], graveyard: [0.82, 0.84, 0.8] };
+  const green = id === 'forest' || id === 'meadow' || id === 'springs' || id === 'graveyard';
+  const scanRocks = (caps) => {
+    if (!scanReady()) return null;
+    const tint = SCAN_TINT[id] || null, vars = [];
+    const add = (mid, picks, sink = 0) => {
+      const files = scanVariants(mid), mat = scanMat(mid, { tint });
+      if (!mat) return;
+      for (const k of picks) {
+        const g = files[k] && scanGeo(files[k], { radius: 1 });
+        if (!g) continue;
+        if (sink) g.translate(0, -sink, 0);
+        const parts = [{ geo: g, mat }];
+        if (caps) parts.push({ geo: capFaces(g.index ? g.toNonIndexed() : g, { seed: 30 + k, lift: 0.04, minNy: 0.55 }), mat: snowMat });
+        vars.push(parts);
+      }
+    };
+    if (green) { add('rock_moss_set_01', [0, 3, 4]); add('rock_moss_set_02', [3, 4]); }
+    else { add('boulder_01', [0]); add('namaqualand_boulder_02', [0]); add('rock_moss_set_02', [4, 6]); }
+    return vars.length ? vars : null;
+  };
+  lib.rock = () => ({ variants: scanRocks(id === 'frozen') || rockVar([11, 12, 13], { mat: stone, tint: id === 'forest' ? [0.9, 1, 0.8] : null }), r: 1.0, s: [0.8, 2.6], sink: 0.12, n: 70 });
+  lib.snowrock = () => ({ variants: scanRocks(true) || rockVar([31, 32], { mat: stone }, true), r: 1.1, s: [1, 3], sink: 0.12, n: 50 });
   lib.mesa = () => {
     const seg = [28, 36, 48][Q], hs = [10, 14, 20][Q];
     const g = new THREE.CylinderGeometry(0.8, 1.05, 1.3, seg, hs, false);
@@ -256,6 +279,8 @@ export function propLibrary(biome, Q = 2) {
     return { parts: [{ geo: finish(g, { smooth: false }), mat }], r: 0, s: [1.2, 3.2], n: 30, flat: true, noShadow: true, maxSlope: 0.5 };
   };
   lib.stump = () => {
+    const sg = scanReady() && scanVariants('tree_stump_01')[0];
+    if (sg) return { parts: [{ geo: scanGeo(sg, { radius: 0.62 }), mat: scanMat('tree_stump_01') }], r: 0.45, s: [0.8, 1.5], n: 24 };
     const pts = [V3(0, -0.2, 0), V3(0.02, 0.2, 0), V3(0, 0.55, 0.02), V3(-0.03, 0.82, 0)];
     const nz = noise3(14);
     const t = tube(pts, (tt, a) => (0.42 - tt * 0.1) * (1 + 0.5 * Math.exp(-tt * 9) * Math.max(0, Math.cos(a * 5 + 1))) * (1 + (nz.n(a * 2, tt * 3, 0) - 0.5) * 0.3), 14, { vScale: 0.5, uRep: 2, noise: nz, wob: 0.08 });
@@ -343,6 +368,8 @@ export function propLibrary(biome, Q = 2) {
     return { variants: vars, r: 0.5, s: [0.8, 1.5], n: 70, climb: 5.4, fork: forkGeo(0.5, 6), forkMat: bark };
   };
   lib.log = () => {
+    const lg = scanReady() && scanVariants('dead_tree_trunk')[0];
+    if (lg) { const g = scanGeo(lg, { radius: 2.6 }); g.translate(0, -0.04, 0); return { parts: [{ geo: g, mat: scanMat('dead_tree_trunk', { tint: id === 'forest' ? [0.9, 0.95, 0.85] : null }) }], r: 1.0, s: [0.9, 1.3], n: 25 }; }
     const nz = noise3(6), rnd = mulberry32(6);
     const pts = []; for (let i = 0; i <= 10; i++) { const t = i / 10; pts.push(V3(-2.5 + t * 5, 0.42 + Math.sin(t * 3) * 0.04 + (nz.n(t * 4, 0, 0) - 0.5) * 0.08, Math.sin(t * 4) * 0.12)); }
     const t = tube(pts, (tt) => 0.5 - tt * 0.06 + (nz.n(tt * 6, 1, 1) - 0.5) * 0.06, 12, { uRep: 2, vScale: 0.4, noise: nz, wob: 0.06 });

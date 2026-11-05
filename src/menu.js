@@ -13,6 +13,8 @@ import * as TX from './textures.js';
 import { WEAPONS } from './data.js';
 import { makeWeapon } from './weapons.js';
 import { buildVista, makeSky } from './vista.js';
+import { upgradeVistaScan } from './vistascan.js';
+import { setupLobbyBg } from './lobbybg.js';
 
 export class MenuScene {
   constructor(game) {
@@ -125,6 +127,8 @@ export class MenuScene {
     });
     this.vista = buildVista(this.fx, game.q);
     s.add(this.vista.group);
+    try { upgradeVistaScan(this, game.q); } catch (e) { console.warn('vista scan failed', e); }
+    try { setupLobbyBg(this, game.q); } catch (e) { console.warn('lobby bg failed', e); }
     const off0 = this.camera.aspect > 1.3 ? -2.9 : 0;
     this.camTarget = new THREE.Vector3(off0 + 10, 18, -62);
     this.camPos = new THREE.Vector3(off0 - 4, 13, 46);

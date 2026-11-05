@@ -357,5 +357,6 @@ export class Bot {
     const bed = g.price(CONFIG.bedPrice);
     if (p.beds < 3 && p.pc >= bed + 30) { p.pc -= bed; p.beds++; g.audio.play('buy'); return; }
     if (!p.bedPos && p.beds > 0 && p.onGround && g.phase === 'play') p.placeBed();
+    if (this.hired < 3 && p.pc >= g.price(NPCS.sellsword.cost) + 60 && g.phase === 'play') { p.pc -= g.price(NPCS.sellsword.cost); g.request('npc', 'sellsword'); this.hired++; g.audio.play('buy'); }
   }
 }

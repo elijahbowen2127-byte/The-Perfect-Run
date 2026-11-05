@@ -1,0 +1,58 @@
+// Loads the binary game assets (character and weapon glTF files) once at boot.
+// They ship as glTF JSON with the geometry buffer base64-inlined and textures
+// as separate image files, so any static host serves them. The JSON is
+// repacked into an in-memory GLB before parsing, so no data: or blob: URL is
+// ever fetched (strict content security policies block those).
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const cache = new Map();
+export const ASSET_FILES = ['veteran.glb', 'xbot.glb', 'clown.glb', 'soldier.glb', 'scalefang.glb', 'michelle.glb', 'sorceress.glb', 'skull.glb', 'runeSword.glb', 'frostAxe.glb', 'moltenDagger.glb'];
+
+function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+// glTF JSON with one inlined buffer -> GLB ArrayBuffer.
+function toGLB(json) {
+  let bin = new Uint8Array(0);
+  if (json.buffers && json.buffers.length) {
+    const uri = json.buffers[0].uri || '';
+    const i = uri.indexOf('base64,');
+    if (i >= 0) { bin = b64ToBytes(uri.slice(i + 7)); delete json.buffers[0].uri; }
+  }
+  const enc = new TextEncoder().encode(JSON.stringify(json));
+  const jsonLen = Math.ceil(enc.length / 4) * 4, binLen = Math.ceil(bin.length / 4) * 4;
+  const total = 12 + 8 + jsonLen + (bin.length ? 8 + binLen : 0);
+  const buf = new ArrayBuffer(total), dv = new DataView(buf), u8 = new Uint8Array(buf);
+  dv.setUint32(0, 0x46546c67, true); dv.setUint32(4, 2, true); dv.setUint32(8, total, true);
+  dv.setUint32(12, jsonLen, true); dv.setUint32(16, 0x4e4f534a, true);
+  u8.set(enc, 20); for (let k = enc.length; k < jsonLen; k++) u8[20 + k] = 0x20;
+  if (bin.length) {
+    const o = 20 + jsonLen;
+    dv.setUint32(o, binLen, true); dv.setUint32(o + 4, 0x004e4942, true);
+    u8.set(bin, o + 8);
+  }
+  return buf;
+}
+
+export async function loadAssets(onProgress) {
+  const loader = new GLTFLoader();
+  let done = 0;
+  await Promise.all(ASSET_FILES.map(async (f) => {
+    try {
+      const res = await fetch('assets/' + f.replace(/\.glb$/, '.json'));
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const glb = toGLB(await res.json());
+      cache.set(f, await loader.parseAsync(glb, 'assets/'));
+    } catch (e) {
+      console.warn('asset failed', f, e);
+    }
+    done++;
+    if (onProgress) onProgress(done / ASSET_FILES.length, f);
+  }));
+}
+
+export function assetGLTF(file) { return cache.get(file) || null; }

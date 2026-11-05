@@ -3,12 +3,14 @@
 // variation, tile breaking, baked splat weights from the generator, glowing cracks and frost sparkle.
 import * as THREE from 'three';
 import * as TX from './textures.js';
+import { GROUND, groundTex, SCAN_ON } from './scan.js';
 
 export const SUN_DIR = new THREE.Vector3(0.69, 0.56, 0.38).normalize();
 
 const FRAG_PARS = /* glsl */ `
 uniform sampler2D tA, tB, tS, tR, nA, nB, nS, nR, tMacro;
 uniform vec4 uInv, uRough, uEmit;
+uniform vec3 uTA, uTB, uTS, uTR;
 uniform vec2 uSlope;
 uniform float uT, uSpark, uNS;
 uniform vec3 uCrackCol;
@@ -37,9 +39,10 @@ const MAP_BLOCK = /* glsl */ `
   vec4 cA = textureGrad(tA, uA, gAx, gAy);
   vec4 cA2 = textureGrad(tA, wp * uInv.x * 0.173 + 0.31, gAx * 0.173, gAy * 0.173);
   cA = mix(cA, cA2, 0.38);
+  cA.rgb *= uTA;
   vec4 cB = vec4(0.0), cS = vec4(0.0), cR = vec4(0.0);
-  if (wB > 0.004) cB = textureGrad(tB, uB, dpx.xz * uInv.y, dpy.xz * uInv.y);
-  if (wS > 0.004) cS = textureGrad(tS, uS, dpx.xz * uInv.z, dpy.xz * uInv.z);
+  if (wB > 0.004) { cB = textureGrad(tB, uB, dpx.xz * uInv.y, dpy.xz * uInv.y); cB.rgb *= uTB; }
+  if (wS > 0.004) { cS = textureGrad(tS, uS, dpx.xz * uInv.z, dpy.xz * uInv.z); cS.rgb *= uTS; }
   vec3 bw = vec3(0.0, 1.0, 0.0);
   vec2 uRy = tp * uInv.w, uRx = vWP.zy * uInv.w, uRz = vWP.xy * uInv.w;
   if (wR > 0.004) {
@@ -51,6 +54,7 @@ const MAP_BLOCK = /* glsl */ `
     vec2 uRs = bw.y > 0.6 ? uRy : (abs(vWN.x) > abs(vWN.z) ? uRx : uRz);
     cR = textureGrad(tR, uRs, gy1, gy2);
 #endif
+    cR.rgb *= uTR;
   }
   vec4 rr = vec4(wA, wB, wS, wR);
   vec4 hh = vec4(cA.a, cB.a, cS.a, cR.a);
@@ -121,6 +125,21 @@ export function makeTerrainMaterial(biome, q) {
     uT: { value: 0 }, uSpark: { value: biome.id === 'frozen' || biome.id === 'frost' ? 1 : 0 }, uNS: { value: biome.id === 'frozen' || biome.id === 'frost' ? 0.9 : 1.15 },
     uCrackCol: { value: new THREE.Color(crack[0], crack[1], crack[2]).multiplyScalar(biome.id === 'volcanic' ? 2.6 : 1.8) },
   };
+  uniforms.uTA = { value: new THREE.Vector3(1, 1, 1) }; uniforms.uTB = { value: new THREE.Vector3(1, 1, 1) };
+  uniforms.uTS = { value: new THREE.Vector3(1, 1, 1) }; uniforms.uTR = { value: new THREE.Vector3(1, 1, 1) };
+  // Photo-scanned ground: each scanned layer replaces its procedural one as soon as its two maps have loaded.
+  const scan = SCAN_ON && GROUND[biome.id];
+  if (scan) {
+    const K = ['A', 'B', 'S', 'R'], inv = ['x', 'y', 'z', 'w'], rough = [0.92, 0.9, 0.9, 0.88];
+    scan.forEach((ly, i) => {
+      if (!ly) return;
+      groundTex(ly.id, (t) => {
+        uniforms['t' + K[i]].value = t.albedo; uniforms['n' + K[i]].value = t.normal;
+        uniforms.uInv.value[inv[i]] = 1 / ly.scale; uniforms.uRough.value[inv[i]] = rough[i];
+        uniforms['uT' + K[i]].value.set(ly.tint[0], ly.tint[1], ly.tint[2]);
+      });
+    });
+  }
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0 });
   if (q >= 1) mat.defines.TERR_NORMALS = '';
   if (q >= 2) { mat.defines.TERR_TRI = ''; mat.defines.TERR_NORMALS_ALL = ''; }

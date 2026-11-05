@@ -39,7 +39,7 @@ export const GEAR_GOALS = {
   alienblaster: { how: 'Get 1,000 kills on Crash Site Prime', p: prog('killsSpace', 1000) },
 };
 // Extras that are not wall items: the game-speed control (T / D-pad down) is earned by finishing runs.
-export const EXTRA_GOALS = { speed: { name: 'Game speed', how: 'Win 4 runs. Then T or D-pad down cycles 1x / 2x / 3x in solo and couch runs', p: prog('wins', 4), tag: 'Control' } };
+export const EXTRA_GOALS = { speed: { name: 'Game speed', how: 'Finish 4 runs, win or lose. Then T or D-pad down cycles 1x / 2x / 3x in solo and couch runs', p: prog('runs', 4), tag: 'Control' } };
 export const speedUnlocked = () => { const [a, b] = EXTRA_GOALS.speed.p(); return a >= b; };
 
 export function gearUnlocked(id) {

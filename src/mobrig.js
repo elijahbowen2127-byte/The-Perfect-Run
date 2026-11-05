@@ -3,6 +3,7 @@
 // juggernaut, spectral wraiths) with a procedural layer on top for posture,
 // claw swipes, casting, hit flinches and a falling death.
 import * as THREE from 'three';
+import { lodSet, lodLevel } from './lod.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { getTemplate, bonesOf } from './characters.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -711,6 +712,8 @@ export class MobRig {
     this.pivot.add(this.model);
     this.root.add(this.pivot);
     this.model.traverse((o) => { if (o.isMesh) { o.frustumCulled = true; o.castShadow = !this.look.ghost; } });
+    this.bodies = []; this.model.traverse((o) => { if (o.isSkinnedMesh && o.castShadow) this.bodies.push(o); }); // LOD + shadow switching (lod.js)
+    this.full = this.bodies.map((m) => m.geometry); this.lod = 0; this.shadow = true;
     this.b = bonesOf(this.model);
     // Bones a build shrank (the lizard goblin's hidden head) keep that size: the clips carry scale tracks that would put it back to 1.
     this.keepScale = []; for (const b of this.b.values()) if (Math.abs(b.scale.x - 1) > 1e-3) this.keepScale.push([b, b.scale.clone()]);
@@ -845,6 +848,13 @@ export class MobRig {
   }
 
   // st: { speed, attack (1 -> 0 as the swing plays), frozen, hit, pitch/vy (flyers) }
+  // Distance detail: lighter body copies further out (lod.js).
+  setLod(d) {
+    if (!this.ok) return;
+    const lv = lodLevel(d); // (shadow casting by distance is the frame governor's job: PERF.mobShadow in views.js)
+    if (lv !== this.lod) { this.lod = lv; this.bodies.forEach((m, i) => { m.geometry = lodSet(this.full[i])[lv]; }); }
+  }
+
   update(st, dt, far = 0) {
     if (!this.ok) return;
     if (st.hit) this.flImp += this.look.slam ? 0.4 : 1;

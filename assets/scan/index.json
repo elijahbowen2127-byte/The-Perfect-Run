@@ -1,0 +1,83 @@
+{
+ "boulder_01": {
+  "variants": [
+   "boulder_01_0"
+  ],
+  "maps": {
+   "nor_gl": "boulder_01_nor_gl.webp",
+   "arm": "boulder_01_arm.webp",
+   "diff": "boulder_01_diff.webp"
+  }
+ },
+ "namaqualand_boulder_02": {
+  "variants": [
+   "namaqualand_boulder_02_0"
+  ],
+  "maps": {
+   "arm": "namaqualand_boulder_02_arm.webp",
+   "nor_gl": "namaqualand_boulder_02_nor_gl.webp",
+   "diff": "namaqualand_boulder_02_diff.webp"
+  }
+ },
+ "rock_moss_set_01": {
+  "variants": [
+   "rock_moss_set_01_0",
+   "rock_moss_set_01_1",
+   "rock_moss_set_01_2",
+   "rock_moss_set_01_3",
+   "rock_moss_set_01_4",
+   "rock_moss_set_01_5"
+  ],
+  "maps": {
+   "rough": "rock_moss_set_01_rough.webp",
+   "nor_gl": "rock_moss_set_01_nor_gl.webp",
+   "diff": "rock_moss_set_01_diff.webp"
+  }
+ },
+ "rock_moss_set_02": {
+  "variants": [
+   "rock_moss_set_02_0",
+   "rock_moss_set_02_1",
+   "rock_moss_set_02_2",
+   "rock_moss_set_02_3",
+   "rock_moss_set_02_4",
+   "rock_moss_set_02_5",
+   "rock_moss_set_02_6"
+  ],
+  "maps": {
+   "rough": "rock_moss_set_02_rough.webp",
+   "diff": "rock_moss_set_02_diff.webp",
+   "nor_gl": "rock_moss_set_02_nor_gl.webp"
+  }
+ },
+ "tree_stump_01": {
+  "variants": [
+   "tree_stump_01_0"
+  ],
+  "maps": {
+   "diff": "tree_stump_01_diff.webp",
+   "nor_gl": "tree_stump_01_nor_gl.webp",
+   "arm": "tree_stump_01_arm.webp"
+  }
+ },
+ "dead_tree_trunk": {
+  "variants": [
+   "dead_tree_trunk_0"
+  ],
+  "maps": {
+   "diff": "dead_tree_trunk_diff.webp",
+   "nor_gl": "dead_tree_trunk_nor_gl.webp",
+   "arm": "dead_tree_trunk_arm.webp"
+  }
+ },
+ "dead_quiver_trunk": {
+  "variants": [
+   "dead_quiver_trunk_0"
+  ],
+  "maps": {
+   "arm": "dead_quiver_trunk_arm.webp",
+   "diff": "dead_quiver_trunk_diff.webp",
+   "nor_gl": "dead_quiver_trunk_nor_gl.webp"
+  }
+ }
+}

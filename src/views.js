@@ -252,6 +252,7 @@ export class MobView {
       camera.getWorldDirection(_dir);
       const behind = d > 4 && (dx * _dir.x + dz * _dir.z) / d < -0.2;
       const far = behind ? 0.2 : d < 16 ? 0 : d < 36 ? 0.05 : 0.12;
+      if (this.rig.setLod) this.rig.setLod(d);
       const st = { speed: frozen || stag ? 0 : speed, attack: this.anim, frozen, hit, stagger: stagStart };
       if (this.fly) {
         // Wing beat and body pitch follow the climb or dive.

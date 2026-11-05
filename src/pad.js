@@ -5,7 +5,7 @@ const dz = (v) => (Math.abs(v) < DEAD ? 0 : Math.sign(v) * (Math.abs(v) - DEAD) 
 
 // Standard mapping (Xbox names): 0 A, 1 B, 2 X, 3 Y, 4 LB, 5 RB, 6 LT, 7 RT,
 // 8 View, 9 Menu, 10 L3, 11 R3, 12-15 d-pad up/down/left/right.
-// Y / △ is the third ability (G), D-pad up does nothing, D-pad down is the game speed, ◀ ▶ swap weapons.
+// Y / △ is the third ability (D-pad up toggles CPU play, D-pad down the game speed, ◀ ▶ swap weapons).
 const HOLD = { 0: ['Space'], 1: ['KeyX'], 2: ['KeyR', 'KeyE'], 3: ['KeyG'], 4: ['KeyQ'], 5: ['KeyF'], 6: ['PadClose'], 10: ['PadDown'], 14: ['Digit1'], 15: ['Digit2'] };
 
 export function connectedPads() {
@@ -49,7 +49,7 @@ export class PadInput {
         else if (this.held.has(c)) { I.keys.delete(c); this.held.delete(c); }
       }
     }
-    // R3 flips the camera view; with the left trigger held it places a bed. D-pad down is the speed-up button.
+    // R3 flips the camera view; with the left trigger held it places a bed. D-pad down is the speed-up button, D-pad up the CPU toggle.
     if (down(11)) I.pressed.add(b[6] ? 'KeyB' : 'KeyV');
     const ev = { pause: down(9), shop: down(8), back: down(1), a: down(0), dl: down(14), dr: down(15), du: down(12), dd: down(13) };
     this.prev = b;

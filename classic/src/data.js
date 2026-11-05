@@ -1,0 +1,558 @@
+// Game data: classes, weapons, biomes, enemies, bosses, NPCs, blessings, crates.
+
+export const CONFIG = {
+  maxPlayers: 5,
+  rounds: 6,
+  voteSeconds: 10,
+  pcPerKill: 2,
+  pcPerBoss: 200,
+  cratePrice: 30,
+  bedPrice: 60,
+  baseHp: 100,
+  walk: 6.27,
+  sprint: 9.69,
+  jump: 7.8,
+  gravity: 22,
+  mapHalf: 160,
+  minSpawnDist: 28,
+};
+
+export const CLASSES = [
+  {
+    id: 'pyre', name: 'Pyre', element: 'Fire', color: 0xd84a1b, accent: 0xffa040, css: '#ff7a2a',
+    tagline: 'Burn it all down.',
+    q: { id: 'fireball', name: 'Fireball', cd: 5, desc: 'Hurl a blazing fireball that flies through every enemy on its way (130 m), burning each one, then explodes where it lands.' },
+    r: { id: 'inferno', name: 'Inferno', cd: 10, desc: 'Erupt in a wide ring of fire that scorches everything around you for 5s while blasts keep going off inside it.' },
+    e: { id: 'firewall', name: 'Wall of Fire', cd: 10, desc: 'Raise a long, tall wall of flame across your crosshair for 6 seconds. Anything caught in it or walking through burns hard.' },
+  },
+  {
+    id: 'bastion', name: 'Bastion', element: 'Earth', color: 0x7a5a3a, accent: 0xd9a25a, css: '#d9a25a',
+    tagline: 'The earth bends to you.',
+    q: { id: 'boulder', name: 'Boulder Toss', cd: 5, desc: 'Rip a boulder out of the ground and hurl it at your crosshair. It smashes on impact, stunning and scattering everything nearby.' },
+    r: { id: 'rockarmor', name: 'Rock Armor', cd: 10, desc: 'Stone slabs clamp on to your body and you take no damage at all until Rock Armor is ready again. Every hit the armor takes shocks the ground, knocking back and stunning enemies around you.' },
+    e: { id: 'pillars', name: 'Pillar Burst', cd: 10, desc: 'Stamp the ground: a pillar of rock erupts under every enemy within 12 m, launching, stunning and crushing them.' },
+  },
+  {
+    id: 'tempest', name: 'Tempest', element: 'Storm', color: 0x2c3f8f, accent: 0x8fb4ff, css: '#8fb4ff',
+    tagline: 'Strike first. Strike everywhere.',
+    q: { id: 'chain', name: 'Chain Lightning', cd: 5, desc: 'A thick braid of lightning strands that snap together on one focal point at the far end, going straight through everything in its path and striking every enemy it touches. The current also reflects to nearby enemies.' },
+    r: { id: 'storm', name: 'Thunderstorm', cd: 10, desc: 'Call a wide storm cell (26 m across) that hammers the whole area with lightning for 6s.' },
+    e: { id: 'shockwave', name: 'Thunder Shockwave', cd: 10, desc: 'Slam the ground and send a tight ring of electricity racing 32 m in every direction. Everything it crosses is badly shocked.' },
+  },
+  {
+    id: 'rime', name: 'Rime', element: 'Frost', color: 0x2f7fa8, accent: 0xaee8ff, css: '#aee8ff',
+    tagline: 'Everything stops.',
+    q: { id: 'shards', name: 'Ice Shards', cd: 5, desc: 'Tiny ice shards form around you and dart at every enemy nearby, chilling what they hit.' },
+    r: { id: 'barrier', name: 'Ice Barrier', cd: 10, desc: 'Raise a wall of ice ahead of you for 8s. Anything that touches it is locked inside an ice crystal for 10 seconds, however big.' },
+    e: { id: 'tsunami', name: 'Tsunami', cd: 10, desc: 'A towering wave of water surges forward and drowns a wide spread of enemies.' },
+  },
+  {
+    id: 'gale', name: 'Gale', element: 'Wind', color: 0x3f8a6c, accent: 0xbaffea, css: '#9dffd9',
+    tagline: 'Never where they aim.',
+    q: { id: 'veil', name: 'Storm Veil', cd: 5, desc: 'Unleash a thick, howling curtain of wind in a wide cone ahead for 3s. It keeps shoving enemies back, slashes them and slows them while they are inside.' },
+    r: { id: 'cyclone', name: 'Cyclone', cd: 10, desc: 'Unleash a tornado that drags enemies in and shreds them.' },
+    e: { id: 'eye', name: 'Eye of the Storm', cd: 10, desc: 'Wrap yourself in a huge swirl of wind for 5s. Nothing can hurt you inside it, enemy shots are deflected back at their shooters, and enemies that touch the swirl are flung away. You can still shoot out.' },
+  },
+];
+export const CLASS_BY_ID = Object.fromEntries(CLASSES.map((c) => [c.id, c]));
+
+// kind: melee | gun. Damage per hit/pellet. rate = seconds between attacks. Melee arc = total degrees the swing covers; every melee weapon shares the spear's range (4.8) and trail-sized sweep.
+import { SWORD_SHIELD_DATA } from './shields.js';
+// Sword-and-shield pairs (src/shields.js): one-handed melee that can also block and parry (Player.blockStep).
+export const WEAPONS = [
+  ...SWORD_SHIELD_DATA,
+  { id: 'knife', name: 'Combat Knife', kind: 'melee', dmg: 30, rate: 0.32, range: 6.2, arc: 70, desc: 'Fast and vicious up close.' },
+  { id: 'sword', name: 'Longsword', kind: 'melee', dmg: 48, rate: 0.55, range: 6.2, arc: 165, desc: 'Wide sweeping cuts.' },
+  { id: 'katana', name: 'Katana', kind: 'melee', dmg: 42, rate: 0.42, range: 6.2, arc: 120, desc: 'Folded steel. Quick, clean cuts.' },
+  { id: 'spear', name: 'War Spear', kind: 'melee', dmg: 58, rate: 0.7, range: 8.4, arc: 40, desc: 'Long reach, wide sweeping thrusts.' },
+  { id: 'axe', name: 'Battle Axe', kind: 'melee', dmg: 85, rate: 0.95, range: 6.2, arc: 150, desc: 'A one-hand viking bearded axe with brass inlay. Swings alternate overhead chops and wide cuts.' },
+  { id: 'warhammer', name: 'Warhammer', kind: 'melee', dmg: 105, rate: 1.1, range: 6.2, arc: 100, kb: 12, desc: 'Crushing blows that hurl enemies back.' },
+  { id: 'claws', name: 'Wolverine Claws', kind: 'melee', fist: true, dmg: 28, rate: 0.27, range: 6.2, arc: 146, desc: 'Triple blades on both fists. Fast, long raking slashes.' },
+  { id: 'lucille', name: 'Lucille', kind: 'melee', dmg: 118, rate: 0.7, range: 6.2, arc: 135, kb: 12, desc: 'A baseball bat wrapped in barbed wire. Brutal, and it knocks them flying.' },
+  { id: 'machete', name: 'Machete', kind: 'melee', dmg: 78, rate: 0.36, range: 6.2, arc: 125, desc: 'A broad survival blade. Fast, heavy chops.' },
+  { id: 'fireaxe', name: 'Fire Axe', kind: 'melee', dmg: 142, rate: 0.95, range: 6.2, arc: 150, desc: 'Hickory-handled rescue axe, red head with a bright steel edge and a glass-breaker spike. Chops alternate with wide cuts.' },
+  { id: 'sledge', name: 'Sledgehammer', kind: 'melee', dmg: 190, rate: 1.25, range: 6.2, arc: 110, kb: 17, desc: 'A long-handled demolition hammer. Slow, and nothing stands up to it.' },
+  { id: 'chainsaw', name: 'Chainsaw', kind: 'melee', dmg: 24, rate: 0.26, range: 6.2, arc: 90, kb: 3, desc: 'Roaring two-handed saw. Shreds everything in front at a frantic pace.' },
+  { id: 'whip', name: 'Bullwhip', kind: 'melee', dmg: 36, rate: 0.5, range: 9.5, arc: 50, desc: 'A long lash with the longest reach of any melee weapon.' },
+  { id: 'alienblaster', name: 'Alien Blaster', kind: 'gun', dmg: 82, rate: 0.14, mag: 14, reload: 1.3, spread: 0.006, auto: false, quiet: true, tracer: [1, 0.12, 0.1], beamLen: 9, kick: 0.35, desc: 'Strange alien pistol. Fires fast semi-auto bursts of short red beams that hit very hard.' },
+  { id: 'pistol', name: 'Striker Pistol', kind: 'gun', dmg: 24, rate: 0.22, mag: 17, reload: 1.1, spread: 0.008, auto: false, desc: 'Polymer service pistol. Fast and reliable, 17 in the mag.' },
+  { id: 'revolver', name: 'Combat Revolver', kind: 'gun', dmg: 55, rate: 0.55, mag: 6, reload: 1.8, spread: 0.004, auto: false, desc: 'Railed tactical wheelgun. Six heavy rounds.' },
+  { id: 'smg', name: 'Tactical SMG', kind: 'gun', dmg: 12, rate: 0.068, mag: 36, reload: 1.6, spread: 0.035, auto: true, desc: 'Compact and flat-shooting. Sprays fast at close range.' },
+  { id: 'ar', name: 'Carbine', kind: 'gun', dmg: 19, rate: 0.11, mag: 30, reload: 1.8, spread: 0.016, auto: true, desc: 'Short-barrel carbine with a red dot. All-round automatic.' },
+  { id: 'shotgun', name: 'Combat Shotgun', kind: 'gun', dmg: 11, pellets: 9, rate: 0.6, mag: 7, reload: 2.1, spread: 0.085, auto: false, desc: 'Semi-auto 12 gauge. Nine pellets of pure argument.' },
+  { id: 'coach', name: 'Tactical Double', kind: 'gun', dmg: 12, pellets: 8, rate: 0.7, mag: 2, reload: 1.6, spread: 0.09, auto: false, desc: 'Railed side-by-side defender. Two barrels, eight pellets each.' },
+  { id: 'lever', name: 'Battle Rifle', kind: 'gun', dmg: 40, rate: 0.36, mag: 20, reload: 2.2, spread: 0.004, auto: false, desc: 'Hard-hitting semi-auto .308 with a low-power scope.' },
+  { id: 'dmr', name: 'Marksman Rifle', kind: 'gun', dmg: 78, rate: 0.7, mag: 8, reload: 2.0, spread: 0.001, auto: false, pierce: 3, desc: 'Suppressed precision rifle. Pierces through 3 enemies.' },
+  { id: 'lmg', name: 'Machine Gun', kind: 'gun', dmg: 17, rate: 0.095, mag: 80, reload: 4.2, spread: 0.028, auto: true, adsBack: 1.5, adsUp: 0.1, desc: 'Belt-fed, with a red dot up top. Hold the trigger down.' },
+  // More firearms. Optional fields: quiet (no muzzle flash), kick (view kick), tracer (colour),
+  // proj ('rocket' | 'grenade': a visible projectile that explodes: radius, falloff, kb, speed),
+  // spin (spin-up seconds), spreadMax / moveMul (minigun: spread widening, slower movement).
+  { id: 'sniper', name: 'Sniper Rifle', kind: 'gun', dmg: 140, rate: 1.15, mag: 5, reload: 2.8, spread: 0.0005, auto: false, pierce: 2, kick: 1.4, desc: 'Chassis bolt-action. One slow shot that goes through two enemies.' },
+  { id: 'pdw', name: 'Suppressed PDW', kind: 'gun', dmg: 15, rate: 0.085, mag: 40, reload: 1.5, spread: 0.012, auto: true, quiet: true, tracer: [0.75, 0.8, 0.85], kick: 0.2, desc: 'Compact and silenced. Tight, steady automatic fire.' },
+  { id: 'hpistol', name: 'Heavy Pistol', kind: 'gun', dmg: 44, rate: 0.3, mag: 8, reload: 1.5, spread: 0.005, auto: false, kick: 0.8, desc: 'Big-bore semi-auto with a compensator. Hits hard, eight rounds.' },
+  { id: 'magnum', name: 'Magnum Revolver', kind: 'gun', dmg: 92, rate: 0.8, mag: 6, reload: 2.4, spread: 0.002, auto: false, kick: 1.3, desc: 'Stainless, compensated hand cannon. Slow, heavy rounds.' },
+  { id: 'sawedoff', name: 'Shorty Pump', kind: 'gun', dmg: 11, pellets: 10, rate: 0.55, mag: 5, reload: 2.2, spread: 0.115, auto: false, kick: 1.2, desc: 'Fourteen-inch pump with a bird\'s-head grip. Devastating up close.' },
+  { id: 'crossbow', name: 'Crossbow', kind: 'gun', dmg: 95, rate: 0.9, mag: 1, reload: 1.6, spread: 0.001, auto: false, pierce: 2, quiet: true, tracer: [0.85, 0.7, 0.45], kick: 0.4, desc: 'Silent. One heavy bolt that skewers two enemies.' },
+  { id: 'longbow', name: 'Longbow', kind: 'gun', bow: true, dmg: 110, rate: 0.5, mag: 1, reload: 0, spread: 0, auto: false, proj: 'arrow', speed: 75, minSpeed: 22, draw: 0.9, nock: 0.5, pierce: 2, quiet: true, kick: 0.3, range: 120, tracer: [0.85, 0.75, 0.55], adsBack: 0.55, adsUp: 0.06, desc: 'Hold to draw, let go to loose. A quick tap lobs a weak arrow; a full draw flies flat and fast and skewers two enemies.' },
+  { id: 'grenadel', name: 'Grenade Launcher', kind: 'gun', dmg: 75, rate: 0.65, mag: 6, reload: 3.6, spread: 0, auto: false, proj: 'grenade', radius: 4.8, falloff: 0.45, kb: 9, speed: 29, kick: 0.9, adsBack: 0.9, adsUp: 0.15, desc: 'Six-shot revolving launcher. Lobs grenades that blow up on impact.' },
+  { id: 'rocket', name: 'Rocket Launcher', kind: 'gun', dmg: 200, rate: 0.8, mag: 1, reload: 3.4, spread: 0, auto: false, proj: 'rocket', radius: 7.5, falloff: 0.5, kb: 16, speed: 62, kick: 1.5, adsBack: 1.15, adsUp: 0.19, desc: 'Shoulder-fired. One rocket, huge blast. You are never hurt by it.' },
+  { id: 'minigun', name: 'Minigun', kind: 'gun', dmg: 9, rate: 0.036, mag: 300, reload: 5.5, spread: 0.018, spreadMax: 0.075, auto: true, spin: 0.6, moveMul: 0.55, kick: 0.12, adsBack: 1.0, adsUp: 0.22, desc: 'Barrels spin up for 0.6s, then it never stops. Spread widens; you move slowly.' },
+  // range: how far the shot reaches (default 160). rapid: hits and effects are thinned like the minigun's.
+  // energy: the magazine is a charge bar shown as a percentage; the reload is the recharge. shoulder: braced on the shoulder.
+  { id: 'pulse', name: 'Pulse Cannon', kind: 'gun', dmg: 20, rate: 0.06, mag: 100, reload: 3.0, spread: 0.02, auto: true, rapid: true, energy: true, shoulder: true, quiet: true, tracer: [0.5, 0.9, 1], kick: 0.1, bar: 'REPULSOR', adsHide: true, desc: 'Shoulder-mounted repulsor cannon. Hold fire for a steady stream until the charge bar runs dry, then wait for it to recharge.' },
+  { id: 'icegun', name: 'Ice Gun', kind: 'gun', dmg: 16, rate: 0.3, mag: 14, reload: 1.9, spread: 0.006, auto: false, ice: 5, quiet: true, tracer: [0.55, 0.9, 1], kick: 0.3, adsHide: true, desc: 'Cryo rifle. Anything it hits is sealed in a block of ice for 5 seconds.' },
+  // Tier 3 actives: used from their slot with the attack button (they replace the fists while selected).
+  // Tier 3, gear: one piece goes with your two weapons. A `gear` item is passive (it never takes the weapon slot);
+  // Laser Vision is a weapon of its own that key 3 selects. eyes: fired from the eyes, nothing held in the hands.
+  { id: 'webswing', name: 'Web Swing', kind: 'gear', tier: 3, gear: 'swing', how: 'Passive · press Jump again in the air', hud: 'Jump again in the air', desc: 'Jump, then hold Jump in the air: a web line shoots up into the sky and you swing on it. Let go to fly on, press Jump again for the next line.' },
+  { id: 'jetpack', name: 'Jetpack', kind: 'gear', tier: 3, gear: 'jet', how: 'Passive · double-tap Jump to fly', hud: 'Double-tap Jump', desc: 'Double-tap Jump to light the jets: hold Jump to climb, hold Shift (L3 on a controller) to descend, tap it twice to drop straight down. Fuel refills on the ground.' },
+  { id: 'wings', name: 'Wings', kind: 'gear', tier: 3, gear: 'wings', how: 'Passive · X to flap, hold Sprint to soar', hud: 'X flap · Sprint soar', desc: 'Feathered wings on your back. Tap X in the air or on the ground to flap and climb bit by bit, then hold Sprint to spread them and soar across the sky. Stamina refills on the ground. X no longer dashes while you wear them.' },
+  { id: 'drone', name: 'Guardian Drone', kind: 'gear', tier: 3, gear: 'drone', how: 'Passive · hovers at your side', hud: 'Auto-fires nearby', desc: 'A quad-rotor that hovers at your shoulder and locks on to anything within 22 m of you, raking it with a fast gatling gun. Needs no input.' },
+  { id: 'turret', name: 'Turret Pack', kind: 'gun', tier: 3, deploy: true, how: 'Active · shoot to drop it · 9 s recharge', dmg: 0, rate: 0.5, mag: 1, reload: 9, spread: 0, auto: false, quiet: true, kick: 0.3, desc: 'Shoot to drop one huge sentry turret where you aim. It tears apart everything within 38 m for 10 seconds. 9 second recharge.' },
+  { id: 'zombiestaff', name: 'Zombie Staff', kind: 'melee', tier: 3, how: 'Active · attack to slam · 60 s recharge', cane: true, summon: 5, cd: 60, dmg: 0, rate: 1.0, range: 0, arc: 0, desc: 'Hold it upright like a cane, then slam it into the ground: five zombies claw out and hunt everything around you for 25 seconds. 60 second recharge.' },
+  // grav: a shot opens a gravity well (see GRAV) where it lands. Harmless to friends; deadly for enemies and the other duelist.
+  { id: 'gravgun', name: 'Gravity Gun', kind: 'gun', tier: 3, grav: true, how: 'Active · pulls enemies into a clump, then detonates', dmg: 0, rate: 1.4, mag: 6, reload: 2.4, spread: 0.002, auto: false, quiet: true, range: 90, tracer: [0.75, 0.45, 1], kick: 0.9, desc: 'Pulls everything into a clump, then detonates. Harmless to friends.' },
+  // heal: a use mends every living teammate anywhere on the map for that fraction of their max HP (and you for HEAL.self). cd: seconds of recharge.
+  { id: 'healstaff', name: 'Healing Staff', kind: 'melee', tier: 3, how: 'Active · attack to heal every ally · 6 s recharge', cane: true, heal: 0.35, cd: 6, dmg: 0, rate: 1.0, range: 0, arc: 0, desc: 'Hold it upright like a cane and raise it: a bending beam of light curls out to every teammate, wherever they are on the map, and heals them by 35%. You mend a little too. 6 second recharge.' },
+  { id: 'laser', name: 'Laser Vision', kind: 'gun', tier: 3, eyes: true, dmg: 14, rate: 0.05, mag: 100, reload: 2.5, spread: 0, auto: true, rapid: true, energy: true, quiet: true, range: 120, tracer: [1, 0.2, 0.15], kick: 0.03, bar: 'LASER', cool: true, pierce: 8, desc: 'Press 3 and hold fire: two thick red beams burn from your eyes and punch through a whole line of enemies until the heat bar is full, then wait for them to cool.' },
+];
+// Bare hands: what you fight with when the loadout is all gear. Not on the weapon wall.
+export const BARE = { id: 'bare', name: 'Bare Hands', kind: 'melee', fist: true, dmg: 24, rate: 0.3, range: 6.2, arc: 146, desc: 'Nothing but your fists.' };
+export const WEAPON_BY_ID = Object.fromEntries([...WEAPONS, BARE].map((w) => [w.id, w]));
+// The weapon wall has three tiers: 1 melee, 2 guns, 3 gear. A loadout is two picks from tiers 1-2 and one from tier 3,
+// kept in that order ([weapon, weapon, gear]).
+export const TIER = (w) => (!w ? 0 : w.tier === 3 ? 3 : w.kind === 'melee' ? 1 : 2);
+// A loadout is any three different items off the wall, weapons first then gear. All three may be gear (you fight bare-handed).
+export const splitLoadout = (ids) => { const ws = [], gears = []; for (const id of ids || []) (TIER(WEAPON_BY_ID[id]) === 3 ? gears : ws).push(id); return { ws, gears, gear: gears[0] || null }; };
+export const loadoutFull = (ids) => { const { ws, gears } = splitLoadout(ids); return ws.length + gears.length === 3 && new Set(ids).size === 3; };
+
+export const BIOMES = [
+  {
+    id: 'graveyard', name: 'The Graveyard', seedTex: 101,
+    groundCols: [[0.2, 0.22, 0.15], [0.3, 0.3, 0.2], [0.23, 0.2, 0.16]], ground: 'pebbles',
+    sky: [0x1b1f33, 0x55506a], fog: 0x3d3c4f, fogDensity: 0.0125, sun: 0xb0b8ff, sunI: 1.4, hemi: [0x8088b0, 0x2a2418], hemiI: 0.7,
+    props: ['tomb', 'cross', 'deadtree', 'mausoleum', 'rock', 'lantern'], mobTint: 0x9aa58a,
+  },
+  {
+    id: 'forest', name: 'Haunted Forest', seedTex: 202,
+    groundCols: [[0.12, 0.17, 0.08], [0.2, 0.25, 0.1], [0.18, 0.13, 0.08]], ground: 'pebbles',
+    sky: [0x0f1f1a, 0x3f5a4a], fog: 0x24362c, fogDensity: 0.016, sun: 0xd8f0c0, sunI: 1.2, hemi: [0x7da88a, 0x1d1a10], hemiI: 0.7,
+    props: ['pine', 'twisted', 'mushroom', 'rock', 'log'], mobTint: 0x6f8f5a,
+  },
+  {
+    id: 'desert', name: 'Scorched Desert', seedTex: 303,
+    groundCols: [[0.62, 0.48, 0.3], [0.75, 0.6, 0.4], [0.55, 0.38, 0.24]], ground: 'smooth',
+    sky: [0x3c6aa8, 0xf0c890], fog: 0xd9b48a, fogDensity: 0.0085, sun: 0xffe2b0, sunI: 2.6, hemi: [0xbfd4ff, 0x7a5a38], hemiI: 0.9,
+    props: ['mesa', 'cactus', 'rock', 'bones', 'pillar'], mobTint: 0xc29a6a,
+  },
+  {
+    id: 'frozen', name: 'Frozen Peaks', seedTex: 404,
+    groundCols: [[0.78, 0.84, 0.9], [0.92, 0.95, 1.0], [0.6, 0.66, 0.74]], ground: 'smooth',
+    sky: [0x6d8cb8, 0xdde8f5], fog: 0xb8c8dc, fogDensity: 0.0085, sun: 0xe8f0ff, sunI: 2.0, hemi: [0xcfe0ff, 0x5a6578], hemiI: 0.9,
+    props: ['snowpine', 'icecrystal', 'rock', 'snowrock'], mobTint: 0xa8c4dc,
+  },
+  {
+    id: 'volcanic', name: 'Volcanic Wastes', seedTex: 505,
+    groundCols: [[0.1, 0.08, 0.08], [0.2, 0.15, 0.13], [0.06, 0.05, 0.05]], ground: 'cracked', crackCol: [1.0, 0.35, 0.05],
+    sky: [0x200806, 0x7a2a12], fog: 0x3a1a12, fogDensity: 0.014, sun: 0xff9a6a, sunI: 1.4, hemi: [0xff7a50, 0x200a05], hemiI: 0.6,
+    props: ['basalt', 'obsidian', 'rock', 'lavapool', 'deadtree'], mobTint: 0x8a4a3a,
+  },
+  {
+    id: 'abyss', name: 'The Abyss', seedTex: 606,
+    groundCols: [[0.08, 0.05, 0.12], [0.15, 0.1, 0.22], [0.05, 0.04, 0.08]], ground: 'cracked', crackCol: [0.6, 0.2, 1.0],
+    sky: [0x05020c, 0x2a1048], fog: 0x1a0d2a, fogDensity: 0.015, sun: 0xc9a0ff, sunI: 1.2, hemi: [0x9a70ff, 0x100818], hemiI: 0.6,
+    props: ['obelisk', 'voidcrystal', 'rock', 'floater'], mobTint: 0x7a5aa8,
+  },
+  // Index 6: a random extra map, a green valley with a stream, a pond and hot springs (see stages.js).
+  {
+    id: 'springs', name: 'Hot Springs Valley', seedTex: 707,
+    groundCols: [[0.2, 0.38, 0.12], [0.3, 0.48, 0.16], [0.34, 0.3, 0.16]], ground: 'pebbles',
+    sky: [0x4a90e0, 0xcfe9f0], fog: 0xd2e8e4, fogDensity: 0.0075, sun: 0xfff2d2, sunI: 2.5, hemi: [0xcfe6ff, 0x4f7a34], hemiI: 0.95,
+    props: ['pine', 'log', 'rock', 'mushroom'], mobTint: 0x7a9a6a,
+  },
+  // Index 7: the hidden space map. Only joins the stage pool once the game has been beaten on Hard (see stageIdx).
+  {
+    id: 'space', name: 'Crash Site Prime', seedTex: 808,
+    groundCols: [[0.3, 0.15, 0.2], [0.42, 0.22, 0.26], [0.2, 0.12, 0.18]], ground: 'cracked', crackCol: [1.0, 0.45, 0.15],
+    sky: [0x020208, 0x2a0f2e], fog: 0x2a1424, fogDensity: 0.0085, sun: 0xffb08a, sunI: 1.5, hemi: [0xb080c0, 0x28101a], hemiI: 0.7,
+    props: ['rock', 'voidcrystal', 'obelisk'], mobTint: 0xb07ac0,
+  },
+];
+
+// Base stats; scaled per round in the host sim.
+// tier: 1 early, 2 mid, 3 late. `model` reuses a body plan; `extra` adds a look.
+export const MOBS = {
+  grunt: { name: 'Ghoul', tier: 1, hp: 60, speed: 4.6, dmg: 8, range: 1.9, rate: 1.0, radius: 0.55, height: 1.8, scale: 1 },
+  runner: { name: 'Stalker', tier: 1, hp: 38, speed: 7.6, dmg: 6, range: 1.7, rate: 0.7, radius: 0.45, height: 1.5, scale: 0.85 },
+  spitter: { name: 'Spitter', tier: 1, hp: 48, speed: 3.6, dmg: 10, range: 22, rate: 2.2, radius: 0.6, height: 1.7, scale: 1, ranged: true },
+  crawler: { name: 'Crawler', tier: 1, model: 'runner', extra: 'spikes', hp: 30, speed: 6.2, dmg: 5, range: 1.5, rate: 0.55, radius: 0.46, height: 1.4, scale: 0.85, color: 0x6a5040 },
+  brute: { name: 'Brute', tier: 2, hp: 230, speed: 3.3, dmg: 18, range: 2.6, rate: 1.6, radius: 1.0, height: 2.8, scale: 1.6 },
+  wraith: { name: 'Wraith', tier: 2, model: 'grunt', extra: 'ghost', hp: 70, speed: 6.4, dmg: 14, range: 2.0, rate: 0.9, radius: 0.5, height: 1.9, scale: 1.05, color: 0x9fe8ff },
+  hexer: { name: 'Hexer', tier: 2, model: 'spitter', extra: 'horns', hp: 90, speed: 3.8, dmg: 16, range: 26, rate: 1.7, radius: 0.6, height: 1.8, scale: 1.1, ranged: true, color: 0x6a3a8a },
+  ravager: { name: 'Ravager', tier: 3, model: 'runner', extra: 'horns', hp: 170, speed: 7.2, dmg: 17, range: 2.1, rate: 0.8, radius: 0.7, height: 2.0, scale: 1.35, color: 0x7a2a22 },
+  juggernaut: { name: 'Juggernaut', tier: 3, model: 'brute', extra: 'armor', hp: 520, speed: 3.0, dmg: 28, range: 3.0, rate: 1.8, radius: 1.3, height: 3.4, scale: 2.0, color: 0x4a4a52 },
+  // Flyers join from round 3. They circle overhead and dive (Gloomwing) or shoot from the air (Skyhunter).
+  gloomwing: { name: 'Gloomwing', tier: 2, fly: true, hp: 80, speed: 7.5, dmg: 13, range: 2.3, rate: 1.5, radius: 0.55, height: 1.5, scale: 1, color: 0x4a2a5a },
+  skyhunter: { name: 'Skyhunter', tier: 3, fly: true, ranged: true, hp: 120, speed: 6, dmg: 15, range: 28, rate: 1.9, radius: 0.55, height: 1.8, scale: 1.1, color: 0x6a8aa0 },
+  banshee: { name: 'Banshee', tier: 3, model: 'grunt', extra: 'ghost', hp: 110, speed: 5.0, dmg: 20, range: 30, rate: 1.4, radius: 0.5, height: 1.9, scale: 1.1, ranged: true, color: 0xff9ad0 },
+  // ---- Variants. APPENDED: the snapshot sends the index in MOB_TYPES, so never reorder the types above.
+  // Optional keys read by the host sim: w spawn-weight multiplier, cap max alive, share max fraction of live
+  // mobs, cost share of the live-mob budget, pack [min,max], guard/turn (frontal shield), bomb, leap, summon,
+  // burnHit/poisonHit (damage over time on the player), slam (ground smash), hold/pspd/pstyle (ranged), summoned, hard (absolute alive cap).
+  bulwark: { name: 'Bulwark', tier: 2, model: 'brute', extra: 'armor', hp: 250, speed: 3.5, dmg: 15, range: 2.5, rate: 1.5, radius: 0.85, height: 2.4, scale: 1.3, color: 0x6a7a9a, w: 0.8, cap: 4, guard: 0.72, turn: 1.4 },
+  bomber: { name: 'Bomber', tier: 1, model: 'runner', hp: 36, speed: 6.4, dmg: 0, range: 2.4, rate: 1, radius: 0.5, height: 1.5, scale: 0.9, color: 0xd8681a, w: 0.8, cap: 4, bomb: { r: 5.2, dmg: 30, fuse: 0.75 } },
+  pouncer: { name: 'Pouncer', tier: 2, model: 'runner', hp: 85, speed: 5.8, dmg: 15, range: 2.2, rate: 1.0, radius: 0.55, height: 1.4, scale: 0.95, color: 0xc89a3a, w: 0.9, cap: 4, leap: { min: 5, max: 15, cd: 4.5, wind: 0.5, t: 0.6, h: 3.4 } },
+  hatchling: { name: 'Hatchling', tier: 1, model: 'spitter', hp: 14, speed: 5.8, dmg: 4, range: 1.4, rate: 0.6, radius: 0.4, height: 1.2, scale: 0.75, color: 0xd8c820, w: 0.7, cap: 10, share: 0.22, cost: 0.4, pack: [4, 6], weave: true },
+  cinder: { name: 'Cinderfiend', tier: 3, model: 'grunt', extra: 'horns', hp: 150, speed: 5.4, dmg: 12, range: 2.1, rate: 1.0, radius: 0.6, height: 2.0, scale: 1.15, color: 0xb02a10, w: 0.9, cap: 3, burnHit: { n: 3, every: 1, k: 0.4 } },
+  venomfang: { name: 'Venomfang', tier: 2, model: 'grunt', hp: 90, speed: 5.2, dmg: 9, range: 2.0, rate: 0.9, radius: 0.55, height: 1.7, scale: 1.0, color: 0x9ad040, w: 0.9, cap: 4, poisonHit: { n: 5, every: 0.8, k: 0.25 } },
+  necro: { name: 'Necromancer', tier: 3, model: 'grunt', hp: 120, speed: 4.2, dmg: 0, range: 30, rate: 1, radius: 0.55, height: 2.0, scale: 1.1, color: 0x7dffb0, w: 0.8, cap: 2, summon: { cd: 7, cap: 4, lo: 12, hi: 20 } },
+  boneling: { name: 'Boneling', tier: 1, model: 'runner', hp: 16, speed: 6.6, dmg: 5, range: 1.5, rate: 0.7, radius: 0.35, height: 1.1, scale: 0.6, color: 0xe8e0cc, summoned: true, cost: 0.3 },
+  archer: { name: 'Ashen Archer', tier: 2, model: 'spitter', hp: 70, speed: 4.6, dmg: 17, range: 40, rate: 2.5, radius: 0.55, height: 1.8, scale: 1.0, ranged: true, color: 0x8a7a50, w: 0.9, cap: 3, hold: [15, 26], pspd: 34, pstyle: 2 },
+  // Trolls: big, tough, slow-swinging brawlers that rotate in with (and replace) the Ghoul.
+  troll: { name: 'Cave Troll', tier: 2, model: 'brute', hp: 300, speed: 3.6, dmg: 22, range: 2.8, rate: 1.7, radius: 1.0, height: 2.7, scale: 1.55, color: 0x7a6a4a, w: 0.9, cap: 4, regen: 0.02 },
+  ogre: { name: 'Ogre Smasher', tier: 3, model: 'brute', hp: 460, speed: 3.2, dmg: 20, range: 3.2, rate: 2.2, radius: 1.25, height: 3.2, scale: 1.9, color: 0x8a5a4a, w: 0.8, cap: 2, slam: { r: 4.6, d: 1.1, dmg: 26, cd: 5 } },
+  // Goblins (the Haunted Forest's tribe): small raiders in packs, a shaman that lobs curses, and the warchief.
+  goblin: { name: 'Goblin Raider', tier: 1, model: 'runner', hp: 46, speed: 6.8, dmg: 7, range: 1.8, rate: 0.75, radius: 0.45, height: 1.35, scale: 0.8, color: 0x5a9a2c, w: 1.1, cap: 10, share: 0.3, pack: [3, 5] },
+  gobshaman: { name: 'Goblin Shaman', tier: 2, model: 'spitter', hp: 95, speed: 4.4, dmg: 14, range: 24, rate: 1.8, radius: 0.5, height: 1.5, scale: 0.9, ranged: true, color: 0x8aff30, w: 0.9, cap: 3, hold: [12, 20], pspd: 20, pstyle: 1 },
+  gobchief: { name: 'Goblin Warchief', tier: 3, model: 'brute', hp: 380, speed: 5.0, dmg: 24, range: 2.4, rate: 1.4, radius: 0.8, height: 2.2, scale: 1.3, color: 0x6a4a1c, w: 0.9, cap: 2, slam: { r: 4.0, d: 1.0, dmg: 22, cd: 6 } },
+  // Humans (the Scorched Desert's outlaws, the Abyss's hired killers): cutthroats, deserters with rifles, shadow blades and a hedge witch.
+  // (The hero-built ones, cutthroat, shadow blade and the knights, carry 200k+ vertices each, hence the low caps.)
+  bandit: { name: 'Cutthroat', tier: 1, model: 'grunt', hp: 56, speed: 5.8, dmg: 9, range: 2.0, rate: 0.9, radius: 0.5, height: 1.84, scale: 1, color: 0x8a5a3a, w: 1.0, cap: 2, hard: 4, share: 0.2, pack: [1, 2] },
+  rifleman: { name: 'Deserter Rifleman', tier: 2, model: 'spitter', hp: 85, speed: 4.6, dmg: 16, range: 42, rate: 2.0, radius: 0.5, height: 1.9, scale: 1, ranged: true, color: 0x8a8a7a, w: 0.9, cap: 3, hold: [16, 28], pspd: 44, pstyle: 2 },
+  assassin: { name: 'Shadow Blade', tier: 2, model: 'runner', hp: 75, speed: 8.0, dmg: 16, range: 2.0, rate: 0.8, radius: 0.45, height: 1.74, scale: 0.95, color: 0x2a2a3a, w: 0.9, cap: 1, hard: 2, leap: { min: 5, max: 14, cd: 5, wind: 0.4, t: 0.5, h: 3.0 } },
+  witch: { name: 'Hedge Witch', tier: 3, model: 'spitter', hp: 150, speed: 4.0, dmg: 19, range: 30, rate: 1.6, radius: 0.5, height: 1.72, scale: 1, ranged: true, color: 0xc040ff, w: 0.8, cap: 2, hold: [14, 24], pspd: 18, pstyle: 1 },
+  // Knights (the Frozen Peaks' fallen order): plate-armoured swordsmen with a shield, and the dread knight that smashes the ground.
+  knight: { name: 'Knight Errant', tier: 2, model: 'brute', hp: 260, speed: 4.4, dmg: 20, range: 2.6, rate: 1.3, radius: 0.65, height: 2.0, scale: 1.15, color: 0x8896b0, w: 0.9, cap: 1, hard: 3, guard: 0.55, turn: 1.5 },
+  dreadknight: { name: 'Dread Knight', tier: 3, model: 'brute', hp: 620, speed: 3.8, dmg: 30, range: 2.8, rate: 1.8, radius: 0.8, height: 2.4, scale: 1.35, color: 0x3a2a3a, w: 0.8, cap: 1, hard: 1, regen: 0.01, slam: { r: 4.5, d: 1.1, dmg: 28, cd: 5.5 } },
+  // Fear's call: the bosses already beaten, shrunk to mob size. Boss rigs, appended so snapshot indices stay stable.
+  echo0: { name: 'Echo of the Gravewarden', tier: 3, hp: 900, speed: 4.2, dmg: 30, range: 3.6, rate: 1.6, radius: 1.2, height: 4.2, scale: 1, summoned: true, cost: 3, slam: { r: 5, d: 1.0, dmg: 34, cd: 5 } },
+  echo1: { name: 'Echo of Thornmother', tier: 3, hp: 1100, speed: 3.8, dmg: 30, range: 3.6, rate: 1.6, radius: 1.2, height: 4.4, scale: 1, summoned: true, cost: 3, slam: { r: 5, d: 1.0, dmg: 34, cd: 5 } },
+  echo2: { name: 'Echo of Sandreaver', tier: 3, hp: 1200, speed: 5.4, dmg: 32, range: 3.4, rate: 1.3, radius: 1.2, height: 4.2, scale: 1, summoned: true, cost: 3, leap: { min: 6, max: 16, cd: 5, wind: 0.5, t: 0.6, h: 3.4 } },
+  echo3: { name: 'Echo of Rimefang', tier: 3, hp: 1300, speed: 5.4, dmg: 32, range: 3.6, rate: 1.4, radius: 1.2, height: 4.4, scale: 1, summoned: true, cost: 3, slam: { r: 5, d: 1.0, dmg: 34, cd: 5 } },
+  echo4: { name: 'Echo of Magmaw', tier: 3, hp: 1500, speed: 4.0, dmg: 36, range: 3.8, rate: 1.7, radius: 1.3, height: 4.8, scale: 1, summoned: true, cost: 3, burnHit: { n: 3, every: 1, k: 0.4 }, slam: { r: 5.5, d: 1.0, dmg: 38, cd: 5 } },
+  echo5: { name: 'Echo of the Perfect One', tier: 3, hp: 1800, speed: 5.2, dmg: 38, range: 3.8, rate: 1.4, radius: 1.3, height: 5, scale: 1, summoned: true, cost: 3, slam: { r: 5.5, d: 1.0, dmg: 40, cd: 5 } },
+};
+// Every stage has its own tribe: these are the ground types a round draws from (flyers join on top, see HostSim.pickLineup).
+export const STAGE_MOBS = {
+  graveyard: ['grunt', 'wraith', 'archer', 'necro', 'banshee'],
+  forest: ['goblin', 'gobshaman', 'venomfang', 'troll', 'gobchief'],
+  desert: ['bandit', 'spitter', 'rifleman', 'pouncer', 'ogre'],
+  frozen: ['crawler', 'knight', 'bulwark', 'juggernaut', 'dreadknight'],
+  volcanic: ['hatchling', 'bomber', 'brute', 'cinder', 'ravager'],
+  abyss: ['runner', 'assassin', 'hexer', 'witch'],
+  springs: ['hatchling', 'venomfang', 'pouncer', 'spitter', 'troll'],
+  space: ['zorp', 'skree', 'gloop', 'gruk', 'lanky', 'stinger', 'brainer', 'warden'],
+};
+// Flyers belong to the abyss alone, so no other stage repeats them.
+export const STAGE_FLY = { abyss: ['gloomwing', 'skyhunter'], space: ['wasp'] };
+// Ghoul and Stalker share the lizard-troll body and used to be most of every round: keep them rare.
+MOBS.grunt.w = 0.4; MOBS.grunt.pack = [1, 2]; MOBS.grunt.share = 0.22; MOBS.grunt.fam = 'troll';
+MOBS.runner.w = 0.5; MOBS.runner.pack = [1, 2]; MOBS.runner.share = 0.24; MOBS.runner.fam = 'troll';
+// The hidden space map's aliens, in every shape and colour. Appended last so snapshot indices stay stable (see MOB_LOOKS for their bodies).
+Object.assign(MOBS, {
+  zorp: { name: 'Zorp', tier: 1, hp: 44, speed: 6.6, dmg: 7, range: 1.7, rate: 0.7, radius: 0.4, height: 1.15, scale: 0.7, color: 0x7fd070, w: 1.2, cap: 12, share: 0.3, pack: [3, 5] },
+  skree: { name: 'Skree', tier: 1, hp: 15, speed: 8.8, dmg: 4, range: 1.3, rate: 0.55, radius: 0.3, height: 0.9, scale: 0.55, color: 0x1fb8c8, w: 0.9, cap: 12, share: 0.22, cost: 0.4, pack: [4, 7], weave: true },
+  gloop: { name: 'Gloop', tier: 1, hp: 70, speed: 4.6, dmg: 9, range: 1.9, rate: 0.9, radius: 0.55, height: 1.6, scale: 0.95, color: 0x3a8aff, w: 1.0, cap: 6 },
+  gruk: { name: 'Gruk', tier: 2, hp: 280, speed: 3.9, dmg: 20, range: 2.8, rate: 1.7, radius: 1.0, height: 3.0, scale: 1.55, color: 0xe05a30, w: 0.9, cap: 3, slam: { r: 4.2, d: 1.0, dmg: 22, cd: 5.5 } },
+  lanky: { name: 'Lanky Sniper', tier: 2, hp: 95, speed: 4.4, dmg: 17, range: 40, rate: 2.1, radius: 0.45, height: 2.7, scale: 1.1, ranged: true, color: 0xb070ff, w: 0.9, cap: 3, hold: [15, 26], pspd: 32, pstyle: 2 },
+  stinger: { name: 'Stinger', tier: 2, hp: 90, speed: 5.4, dmg: 14, range: 24, rate: 1.5, radius: 0.5, height: 1.8, scale: 1.0, ranged: true, color: 0xe8c820, w: 0.9, cap: 3, hold: [12, 20], pspd: 22, pstyle: 1, poisonHit: { n: 4, every: 0.9, k: 0.2 } },
+  brainer: { name: 'Brainer', tier: 3, hp: 130, speed: 4.2, dmg: 19, range: 30, rate: 1.5, radius: 0.5, height: 2.0, scale: 1.1, ranged: true, color: 0xff7ad0, w: 0.8, cap: 2, hold: [14, 24], pspd: 18, pstyle: 1 },
+  warden: { name: 'Hive Warden', tier: 3, hp: 420, speed: 3.9, dmg: 26, range: 2.7, rate: 1.5, radius: 0.8, height: 2.6, scale: 1.3, color: 0x4adbd0, w: 0.8, cap: 2, guard: 0.6, turn: 1.4, regen: 0.01, slam: { r: 4.4, d: 1.0, dmg: 24, cd: 6 } },
+  wasp: { name: 'Hive Wasp', tier: 2, fly: true, hp: 70, speed: 7.6, dmg: 13, range: 2.3, rate: 1.4, radius: 0.5, height: 1.5, scale: 1, color: 0xffa020 },
+  echo7: { name: 'Echo of Mossback', tier: 3, hp: 1300, speed: 4.4, dmg: 32, range: 3.6, rate: 1.5, radius: 1.2, height: 4.4, scale: 1, summoned: true, cost: 3, slam: { r: 5, d: 1.0, dmg: 34, cd: 5 } },
+  echo8: { name: 'Echo of The Visitor', tier: 3, hp: 1800, speed: 5.6, dmg: 36, range: 3.6, rate: 1.3, radius: 1.1, height: 5.0, scale: 1, summoned: true, cost: 3, slam: { r: 5, d: 1.0, dmg: 36, cd: 4.5 } },
+});
+
+// Tuning: mobs are bigger, hit 10% softer and close in 10% slower, so there is time to
+// run and grab drops. Health is untouched, so kills take as long as before.
+export const MOB_SIZE = 1.3;
+export const MOB_TALL = 1.15; // extra height on top of MOB_SIZE, for every regular mob
+for (const m of Object.values(MOBS)) {
+  m.scale *= MOB_SIZE * MOB_TALL; m.height *= MOB_SIZE * MOB_TALL; m.radius *= 1.2;
+  m.dmg = Math.round(m.dmg * 0.9 * 10) / 10;
+  m.speed = Math.round(m.speed * 0.9 * 100) / 100;
+}
+export const MOB_TYPES = Object.keys(MOBS);
+
+// Boss health is multiplied by BOSS_HP and grows BOSS_GROW per round on top (see HostSim.spawnBoss); their hits use dmgScale.
+export const BOSS_HP = 2.5, BOSS_GROW = 0.45;
+export const BOSS_HP_ROUND = 2000, BOSS_DMG_ROUND = 10; // every round adds this much boss health, and this much damage to every boss attack
+export const BOSSES = [
+  { name: 'The Gravewarden', hp: 2200, color: 0x5a6a5a, glow: 0x7dffb0, scale: 3.2, speed: 4.2, attacks: ['slam', 'summon', 'ring'] },
+  { name: 'Thornmother', hp: 2900, color: 0x3a4a22, glow: 0xb6ff4a, scale: 3.4, speed: 3.8, attacks: ['ring', 'summon', 'slam', 'barrage'] },
+  { name: 'Sandreaver', hp: 3600, color: 0x9a6a3a, glow: 0xffc04a, scale: 3.2, speed: 5.0, attacks: ['charge', 'barrage', 'slam'] },
+  { name: 'Rimefang', hp: 4400, color: 0x8ab0d0, glow: 0x9fe8ff, scale: 3.4, speed: 5.4, attacks: ['charge', 'ring', 'slam', 'barrage'] },
+  { name: 'Magmaw', hp: 5400, color: 0x3a1a12, glow: 0xff6a1a, scale: 3.8, speed: 4.0, attacks: ['slam', 'barrage', 'ring', 'summon'] },
+  { name: 'The Perfect One', hp: 7500, color: 0x1a1024, glow: 0xd9a0ff, scale: 4.0, speed: 5.2, attacks: ['slam', 'ring', 'charge', 'barrage', 'summon'] },
+  // Round 6, always: a colossus. Calls minions and the bosses you already beat. dmgAdd is on top of the usual +10 a round.
+  { name: 'Thermes', hp: 10000, color: 0x2a1040, glow: 0x5aa8ff, scale: 9.5, speed: 5.0, reach: 12, rad: 5, dmgAdd: 100, attacks: ['eyelaser', 'quake', 'eyelaser', 'quake'] },
+  // 7: the Hot Springs Valley's boss. 8: The Visitor, the hidden space map's boss: exactly 10,000 health (flatHp) and +400 damage on every attack.
+  { name: 'Mossback', hp: 3200, color: 0x4a6a2a, glow: 0x9aff6a, scale: 3.6, speed: 4.4, attacks: ['slam', 'ring', 'summon', 'charge'] },
+  { name: 'The Visitor', hp: 10000, flatHp: true, dmgAdd: 400, color: 0x9aa4b0, glow: 0x7dffb0, scale: 6.5, speed: 5.4, reach: 8, rad: 3.4, attacks: ['barrage', 'ring', 'charge', 'summon', 'slam', 'barrage'] },
+];
+
+// Death arrives at the 10 minute mark of every round. She can be killed, but her health bar is 500 times a Ghoul's.
+// Her attack grows 20% with every round (compounding).
+export const DEMON = { name: 'Death', speed: 8.4, dmg: 22, rate: 0.9, range: 3.6, hpMul: 500, atkGrow: 1.2, arrive: 600 };
+
+export const NPCS = {
+  sellsword: { name: 'Sellsword', role: 'Attack', cost: 40, hp: 160, dmg: 22, rate: 0.9, range: 2.5, speed: 7, color: 0x8a3a2a, desc: 'A hired blade that charges into melee.' },
+  hunter: { name: 'Hunter', role: 'Attack', cost: 55, hp: 120, dmg: 20, rate: 1.0, range: 22, speed: 7, color: 0x3a5a2a, desc: 'Shoots arrows from range.' },
+  cleric: { name: 'Cleric', role: 'Support', cost: 60, hp: 110, heal: 12, healRate: 1.6, dmg: 0, speed: 7, color: 0xe8e0c0, desc: 'Keeps the party alive with steady healing.' },
+  warden: { name: 'Warden', role: 'Support', cost: 80, hp: 200, dmg: 18, rate: 1.0, range: 2.5, heal: 8, healRate: 2.2, speed: 7, color: 0x6a7a9a, desc: 'Tanky melee fighter who also heals.' },
+  zombie: { name: 'Zombie', role: 'Summoned', cost: 0, summoned: true, life: 25, hp: 110, dmg: 14, rate: 0.8, range: 2.2, speed: 4.2, hunt: 45, color: 0x6a8a5a, desc: 'Raised by the Zombie Staff.' },
+  medic: { name: 'Ranger-Medic', role: 'Support', cost: 90, hp: 120, dmg: 16, rate: 1.0, range: 20, heal: 8, healRate: 2.0, speed: 7, color: 0x4a8a6a, desc: 'Ranged fighter who also heals.' },
+};
+export const NPC_TYPES = Object.keys(NPCS);
+
+export const BLESSINGS = [
+  { id: 'ares', name: "Ares' Wrath", desc: '+30% damage', icon: '⚔', apply: (s) => (s.dmg *= 1.3) },
+  { id: 'hermes', name: "Hermes' Stride", desc: '+18% move speed', icon: '🜁', apply: (s) => (s.speed *= 1.18) },
+  { id: 'asclepius', name: "Asclepius' Grace", desc: 'Regenerate 2.4 HP per second', icon: '✚', apply: (s) => (s.regen += 2.4) },
+  { id: 'chronos', name: "Chronos' Gift", desc: '-30% ability cooldowns', icon: '⧗', apply: (s) => (s.cdr *= 0.7) },
+  { id: 'athena', name: "Athena's Aegis", desc: '+60 max HP', icon: '⛨', apply: (s) => (s.maxHp += 60) },
+  { id: 'hades', name: "Hades' Thirst", desc: 'Heal 7.2% of damage dealt', icon: '☠', apply: (s) => (s.lifesteal += 0.072) },
+  { id: 'artemis', name: "Artemis' Focus", desc: '+30% attack speed', icon: '➶', apply: (s) => (s.rate *= 1.3) },
+  { id: 'gaia', name: "Gaia's Bulwark", desc: 'Take 18% less damage', icon: '⛰', apply: (s) => (s.armor = 1 - (1 - s.armor) * 0.82) },
+  { id: 'hephaestus', name: "Hephaestus' Forge", desc: 'Two blazing blades orbit you and cut everything near', icon: '⚒', apply: (s) => (s.orbit += 2) },
+  { id: 'apollo', name: "Apollo's Sunfire", desc: 'A scorching aura of sunlight burns every enemy near you', icon: '☀', apply: (s) => (s.aura += 2) },
+  { id: 'persephone', name: "Persephone's Harvest", desc: 'Everything you kill bursts into thorns (+1 Soul Burst) and you heal 3% of damage dealt', icon: '❀', apply: (s) => { s.burst += 1; s.lifesteal += 0.03; } },
+  { id: 'demeter', name: "Demeter's Bounty", desc: '+36% PC from kills and pickups fly to you from far away', icon: '❦', apply: (s) => { s.greed *= 1.36; s.magnet += 2; } },
+  { id: 'zeus', name: "Zeus' Thunder", desc: 'Your hits call lightning that arcs to 2 more enemies, and you attack 12% faster', icon: '↯', apply: (s) => { s.elem.storm += 2; s.rate *= 1.12; } },
+  // The big six: each is run-defining on its own. Nine blessings are offered after every boss.
+  { id: 'poseidon', name: "Poseidon's Tide", desc: '+250 max HP and regenerate 6 HP per second', icon: '🔱', apply: (s) => { s.maxHp += 250; s.regen += 6; } },
+  { id: 'hera', name: "Hera's Decree", desc: '+60% damage and +25% attack speed', icon: '♛', apply: (s) => { s.dmg *= 1.6; s.rate *= 1.25; } },
+  { id: 'dionysus', name: "Dionysus' Revelry", desc: '+30% move speed, +25% attack speed and heal 10% of damage dealt', icon: '🍇', apply: (s) => { s.speed *= 1.3; s.rate *= 1.25; s.lifesteal += 0.1; } },
+  { id: 'hecate', name: "Hecate's Rebirth", desc: 'Rise again once when you fall, and take 25% less damage', icon: '☾', apply: (s) => { s.phoenix += 1; s.armor = 1 - (1 - s.armor) * 0.75; } },
+  { id: 'nike', name: "Nike's Triumph", desc: '35% of hits deal double damage, and +60% damage to enemies below a third of their health', icon: '✦', apply: (s) => { s.crit += 0.35; s.execute += 0.6; } },
+  { id: 'prometheus', name: "Prometheus' Gift", desc: '-40% cooldowns, +60% XP, +40% PC, and one more of your signature power', icon: '🔥', apply: (s) => { s.cdr *= 0.6; s.xpGain *= 1.6; s.greed *= 1.4; s.extra += 1; } },
+];
+
+// Power-ups come from crates and from levelling up (kill XP). `kind`: stat, ability (Q/R/G/dash
+// mastery) or special (a new effect rather than a number). `lv: false` keeps one out of the
+// level-up pool (crate-only); `crate: n` is its weight in the special-crate draw.
+const mast = (key, mode, f) => ({ id: 'm_' + key + '_' + mode, kind: 'ability', key, mode, icon: mode === 'dmg' ? '✦' : '⏱', apply: (s) => { s.mast[key][mode] = Math.max(mode === 'cd' ? 0.35 : 0, s.mast[key][mode] * f); } });
+export const POWERUPS = [
+  { id: 'dmg', kind: 'stat', icon: '⚔', name: 'Sharpened Edge', desc: '+10% damage', apply: (s) => (s.dmg *= 1.1) },
+  { id: 'rate', kind: 'stat', icon: '≫', name: 'Quick Hands', desc: '+10% attack speed', apply: (s) => (s.rate *= 1.1) },
+  { id: 'hp', kind: 'stat', icon: '♥', name: 'Vital Essence', desc: '+20 max HP', apply: (s) => (s.maxHp += 20) },
+  { id: 'spd', kind: 'stat', icon: '➤', name: 'Light Boots', desc: '+6% move speed', apply: (s) => (s.speed *= 1.06) },
+  { id: 'cd', kind: 'stat', icon: '⏱', name: 'Arcane Focus', desc: '-10% cooldowns', apply: (s) => (s.cdr *= 0.9) },
+  { id: 'leech', kind: 'stat', icon: '☠', name: 'Vampiric Rune', desc: '+3% lifesteal', apply: (s) => (s.lifesteal += 0.03) },
+  { id: 'armor', kind: 'stat', icon: '⛨', name: 'Iron Skin', desc: 'Take 6% less damage', apply: (s) => (s.armor = 1 - (1 - s.armor) * 0.94) },
+  { id: 'regen', kind: 'stat', icon: '✚', name: 'Regrowth', desc: '+2 HP per second', apply: (s) => (s.regen += 2) },
+  { id: 'jump', kind: 'stat', icon: '⇑', name: 'Spring Legs', desc: '+15% jump height', apply: (s) => (s.jump *= 1.15) },
+  { id: 'eldmg', kind: 'stat', icon: '✦', name: 'Elemental Might', desc: 'Your three powers (Q, F, G) hit 15% harder', apply: (s) => { for (const k of ['q', 'r', 'e']) s.mast[k].dmg *= 1.15; } },
+  { id: 'extra', kind: 'extra', icon: '✚', name: 'One More', desc: 'Your signature power throws one more', apply: (s) => (s.extra += 1) },
+  // Physical attack power-ups: one random pick on every level-up card row.
+  { id: 'crit', kind: 'special', lv: false, icon: '✧', name: 'Killer Instinct', desc: '+10% chance for any hit to deal double damage (stacks)', apply: (s) => (s.crit = Math.min(0.6, s.crit + 0.1)) },
+  { id: 'execute', kind: 'special', lv: false, icon: '☠', name: 'Executioner', desc: '+30% damage to enemies below a third of their health (stacks)', apply: (s) => (s.execute += 0.3) },
+  { id: 'bigmag', kind: 'special', lv: false, icon: '▭', name: 'Extended Mag', desc: '+30% magazine on every gun (stacks)', apply: (s) => (s.mag *= 1.3) },
+  { id: 'fastreload', kind: 'special', lv: false, icon: '↻', name: 'Fast Hands', desc: 'Reload and recharge 25% faster (stacks)', apply: (s) => (s.reload *= 0.75) },
+  { id: 'heavy', kind: 'special', lv: false, icon: '⮕', name: 'Heavy Rounds', desc: 'Your hits shove enemies back (stacks)', apply: (s) => (s.kb += 4) },
+  mast('q', 'dmg', 1.25), mast('q', 'cd', 0.85),
+  mast('r', 'dmg', 1.25), mast('r', 'cd', 0.85),
+  mast('e', 'dmg', 1.25), mast('e', 'cd', 0.85),
+  mast('d', 'dmg', 1.3), mast('d', 'cd', 0.85),
+  { id: 'orbit', kind: 'special', icon: '✶', crate: 7, name: 'Orbiting Blades', desc: 'A spinning blade circles you and cuts anything it touches (stacks, up to 6)', apply: (s) => (s.orbit += 1) },
+  { id: 'aura', kind: 'special', icon: '◉', crate: 3, name: 'Scorching Aura', desc: 'Enemies near you are burned continuously (stacks, up to 6)', apply: (s) => (s.aura += 1) },
+  { id: 'burst', kind: 'special', icon: '✹', crate: 3, name: 'Soul Burst', desc: 'Enemies you kill explode (stacks)', apply: (s) => (s.burst += 1) },
+  { id: 'magnet', kind: 'special', icon: '⌖', crate: 2, name: 'Magnet Charm', desc: 'Pickups fly to you from farther away (stacks)', apply: (s) => (s.magnet += 1) },
+  { id: 'learn', kind: 'special', icon: '✎', name: 'Quick Study', desc: '+25% XP from kills (stacks)', apply: (s) => (s.xpGain *= 1.25) },
+  { id: 'reach', kind: 'special', icon: '⤢', crate: 3, name: 'Reaper\'s Reach', desc: 'While you hold a melee weapon, its swing is 10% wider and reaches 10% farther (stacks)', apply: (s) => (s.reach += 0.1) },
+  { id: 'longarm', kind: 'stat', icon: '↔', name: 'Long Arm', desc: 'Melee weapons reach 20% farther and swing 20% wider (stacks)', apply: (s) => (s.reach += 0.2) },
+  // Reroll set: 30 extra picks. Only dice rerolls draw from here, and every reroll shows a fresh ten.
+  { id: 'rr_vigor', rr: true, kind: 'stat', icon: '♥', name: 'Vigor', desc: '+35 max HP and +1 HP per second', apply: (s) => { s.maxHp += 35; s.regen += 1; } },
+  { id: 'rr_swift', rr: true, kind: 'stat', icon: '➤', name: 'Fleet Foot', desc: '+10% move speed', apply: (s) => { s.speed *= 1.1; } },
+  { id: 'rr_whet', rr: true, kind: 'stat', icon: '⚔', name: 'Whetstone', desc: '+14% damage', apply: (s) => { s.dmg *= 1.14; } },
+  { id: 'rr_frenzy', rr: true, kind: 'stat', icon: '≫', name: 'Frenzy', desc: '+14% attack speed', apply: (s) => { s.rate *= 1.14; } },
+  { id: 'rr_ward', rr: true, kind: 'stat', icon: '⛨', name: 'Ward', desc: 'Take 9% less damage', apply: (s) => { s.armor = 1 - (1 - s.armor) * 0.91; } },
+  { id: 'rr_drain', rr: true, kind: 'stat', icon: '☠', name: 'Soul Drain', desc: '+4.5% lifesteal', apply: (s) => { s.lifesteal += 0.045; } },
+  { id: 'rr_deepfocus', rr: true, kind: 'stat', icon: '⏱', name: 'Deep Focus', desc: '-14% cooldowns', apply: (s) => { s.cdr *= 0.86; } },
+  { id: 'rr_scholar', rr: true, kind: 'stat', icon: '✎', name: 'Scholar', desc: '+40% XP from kills', apply: (s) => { s.xpGain *= 1.4; } },
+  { id: 'rr_goldrush', rr: true, kind: 'stat', icon: '¢', name: 'Gold Rush', desc: '+25% PC from kills', apply: (s) => { s.greed *= 1.25; } },
+  { id: 'rr_lure', rr: true, kind: 'stat', icon: '⌖', name: 'Magnet Ring', desc: 'Pickups fly to you from much farther', apply: (s) => { s.magnet += 2; } },
+  { id: 'rr_hawk', rr: true, kind: 'stat', icon: '✧', name: 'Hawkeye', desc: '+8% chance to deal double damage', apply: (s) => { s.crit = Math.min(0.75, s.crit + 0.08); } },
+  { id: 'rr_finisher', rr: true, kind: 'stat', icon: '☠', name: 'Finisher', desc: '+40% damage to enemies below a third of their health', apply: (s) => { s.execute += 0.4; } },
+  { id: 'rr_drum', rr: true, kind: 'stat', icon: '▭', name: 'Drum Mags', desc: '+40% magazine on every gun', apply: (s) => { s.mag *= 1.4; } },
+  { id: 'rr_speedload', rr: true, kind: 'stat', icon: '↻', name: 'Speedloader', desc: 'Reload and recharge 30% faster', apply: (s) => { s.reload *= 0.7; } },
+  { id: 'rr_concuss', rr: true, kind: 'stat', icon: '⮕', name: 'Concussive', desc: 'Your hits shove enemies back hard', apply: (s) => { s.kb += 6; } },
+  { id: 'rr_pogo', rr: true, kind: 'stat', icon: '⇑', name: 'Pogo Legs', desc: '+25% jump height', apply: (s) => { s.jump *= 1.25; } },
+  { id: 'rr_twinblades', rr: true, kind: 'stat', icon: '✶', name: 'Twin Blades', desc: 'Two more blades orbit you', apply: (s) => { s.orbit += 2; } },
+  { id: 'rr_embers', rr: true, kind: 'stat', icon: '◉', name: 'Ember Skin', desc: 'A burning aura scorches nearby enemies', apply: (s) => { s.aura += 2; } },
+  { id: 'rr_deathpop', rr: true, kind: 'stat', icon: '✹', name: 'Death Pop', desc: 'Enemies you kill explode, twice as hard', apply: (s) => { s.burst += 2; } },
+  { id: 'rr_giant', rr: true, kind: 'stat', icon: '⤢', name: "Giant's Grip", desc: 'Melee weapons reach 25% farther', apply: (s) => { s.reach += 0.25; } },
+  { id: 'rr_qover', rr: true, kind: 'stat', icon: '✦', name: 'Q Overload', desc: 'Your Q power hits 40% harder', apply: (s) => { s.mast.q.dmg *= 1.4; } },
+  { id: 'rr_fover', rr: true, kind: 'stat', icon: '✦', name: 'F Overload', desc: 'Your F power hits 40% harder', apply: (s) => { s.mast.r.dmg *= 1.4; } },
+  { id: 'rr_gover', rr: true, kind: 'stat', icon: '✦', name: 'G Overload', desc: 'Your G power hits 40% harder', apply: (s) => { s.mast.e.dmg *= 1.4; } },
+  { id: 'rr_dashmaster', rr: true, kind: 'stat', icon: '➶', name: 'Dash Master', desc: 'Dash hits 50% harder and recharges 20% faster', apply: (s) => { s.mast.d.dmg *= 1.5; s.mast.d.cd = Math.max(0.35, s.mast.d.cd * 0.8); } },
+  { id: 'rr_bulwark', rr: true, kind: 'stat', icon: '⛫', name: 'Bulwark', desc: '+60 max HP and take 5% less damage', apply: (s) => { s.maxHp += 60; s.armor = 1 - (1 - s.armor) * 0.95; } },
+  { id: 'rr_rage', rr: true, kind: 'stat', icon: '☄', name: 'Berserk Rage', desc: '+30% damage, but you take 10% more', apply: (s) => { s.dmg *= 1.3; s.armor = 1 - (1 - s.armor) * 1.1; } },
+  { id: 'rr_adrenaline', rr: true, kind: 'stat', icon: '⚡', name: 'Adrenaline', desc: '+8% move speed and +8% attack speed', apply: (s) => { s.speed *= 1.08; s.rate *= 1.08; } },
+  { id: 'rr_secondskin', rr: true, kind: 'stat', icon: '✚', name: 'Second Skin', desc: '+3 HP per second', apply: (s) => { s.regen += 3; } },
+  { id: 'rr_echo', rr: true, kind: 'stat', icon: '✚', name: 'Echo', desc: 'Your signature power throws one more', apply: (s) => { s.extra += 1; } },
+  { id: 'rr_lucky', rr: true, kind: 'stat', icon: '♣', name: 'Lucky Streak', desc: '+6% double-damage chance and +20% PC from kills', apply: (s) => { s.crit = Math.min(0.75, s.crit + 0.06); s.greed *= 1.2; } },
+  { id: 'phoenix', kind: 'special', lv: false, icon: '♨', crate: 2, name: 'Phoenix Feather', desc: 'Rise again once when you fall (stacks, per run)', apply: (s) => (s.phoenix += 1) },
+  { id: 'greed', kind: 'special', lv: false, icon: '¢', crate: 2, name: 'Midas Touch', desc: '+30% PC from kills', apply: (s) => (s.greed *= 1.3) },
+  // Crate-only specials: trade-offs and new flavours, so a crate is rarely the same pick twice.
+  { id: 'titan', kind: 'special', lv: false, icon: '⛫', crate: 1.5, name: "Titan's Heart", desc: '+60 max HP, but 4% slower', apply: (s) => { s.maxHp += 60; s.speed *= 0.96; } },
+  { id: 'glass', kind: 'special', lv: false, icon: '✦', crate: 1.5, name: 'Glass Cannon', desc: '+35% damage, -25 max HP', apply: (s) => { s.dmg *= 1.35; s.maxHp -= 25; } },
+  { id: 'berserk', kind: 'special', lv: false, icon: '☄', crate: 1.5, name: 'Berserker', desc: '+20% damage, you take 5% more', apply: (s) => { s.dmg *= 1.2; s.armor = 1 - (1 - s.armor) * 1.05; } },
+  { id: 'rush', kind: 'special', lv: false, icon: '⚡', crate: 1.5, name: 'Bloodrush', desc: '+15% attack speed and +8% move speed', apply: (s) => { s.rate *= 1.15; s.speed *= 1.08; } },
+  { id: 'siphon', kind: 'special', lv: false, icon: '♥', crate: 1.5, name: 'Soul Siphon', desc: '+4% lifesteal and +1 HP per second', apply: (s) => { s.lifesteal += 0.04; s.regen += 1; } },
+  { id: 'bulwark', kind: 'special', lv: false, icon: '⛨', crate: 1.5, name: 'Bulwark', desc: 'Take 10% less damage, 5% slower', apply: (s) => { s.armor = 1 - (1 - s.armor) * 0.9; s.speed *= 0.95; } },
+  { id: 'adrenaline', kind: 'special', lv: false, icon: '✚', crate: 1.5, name: 'Adrenaline', desc: '+2 HP per second and +5% move speed', apply: (s) => { s.regen += 2; s.speed *= 1.05; } },
+  { id: 'heal', kind: 'stat', lv: false, icon: '✚', name: 'Healing Draught', desc: 'Fully healed', apply: (s, p) => (p.hp = s.maxHp) },
+];
+
+// Elemental power-ups: every level-up offers all five and each one stacks without limit.
+const el = (id, icon, name, color, desc, apply) => ({ id: 'el_' + id, el: id, kind: 'element', icon, name, color, desc, apply: (s, p) => { s.elem[id]++; apply(s, p); } });
+export const ELEMENTS = [
+  el('fire', '🔥', 'Fire', '#ff7a2a', 'Your hits set enemies ablaze for longer (+1 s per stack) and hit 8% harder.', (s) => (s.dmg *= 1.08)),
+  el('frost', '❄', 'Frost', '#8fdcff', 'Your hits chill enemies, and each hit has a growing chance to freeze them solid.', () => {}),
+  el('storm', '⚡', 'Storm', '#c9a8ff', 'Your hits arc lightning to one more nearby enemy per stack, and you attack 4% faster.', (s) => (s.rate *= 1.04)),
+  el('earth', '⛰', 'Earth', '#b99062', '+25 max HP and take 6% less damage.', (s) => { s.maxHp += 25; s.armor = 1 - (1 - s.armor) * 0.94; }),
+  el('wind', '🌪', 'Wind', '#9fe8c0', '+7% move speed, +6% attack speed and 4% faster cooldowns.', (s) => { s.speed *= 1.07; s.rate *= 1.06; s.cdr *= 0.96; }),
+];
+export const LEVELUPS = POWERUPS.filter((p) => p.lv !== false && p.id !== 'extra'); // stats, masteries, and the blades/aura/burst/magnet family
+// What a special crate can hold: every special above plus the five elements.
+export const CRATE_POOL = [...POWERUPS.filter((p) => p.kind === 'special'), ...ELEMENTS.map((e) => ({ ...e, crate: 1.2 }))];
+
+// Names for the ability masteries depend on the character's own moves.
+// "One More": what the extra cast is depends on the character's Q power.
+export const EXTRA_BY_CLASS = {
+  pyre: { name: 'Extra Fireball', desc: 'Fireball throws one more fireball per cast (stacks)' },
+  bastion: { name: 'Extra Boulder', desc: 'Boulder Toss hurls one more boulder per cast (stacks)' },
+  gale: { name: 'Extra Tornado', desc: 'Cyclone unleashes one more tornado per cast (stacks)' },
+  tempest: { name: 'Extra Shockwave', desc: 'Thunder Shockwave sends out one more ring, a beat behind the first (stacks)' },
+  rime: { name: 'More Shards', desc: 'Ice Shards summons 4 more shards per cast (stacks)' },
+};
+export function puInfo(pu, cls) {
+  if (pu.kind === 'extra') return EXTRA_BY_CLASS[cls.id] || { name: pu.name, desc: pu.desc };
+  if (pu.kind !== 'ability') return { name: pu.name, desc: pu.desc };
+  const nm = pu.key === 'd' ? 'Dash' : cls[pu.key].name;
+  return pu.mode === 'dmg'
+    ? { name: nm + ' Mastery', desc: nm + ' hits ' + (pu.key === 'd' ? '30' : '25') + '% harder' }
+    : { name: nm + ' Haste', desc: nm + ' recharges 15% faster' };
+}
+
+// Duel Arena: two players, one of three arenas (picked at random per match, see DUEL_BIOMES), 1000 HP each. Every `pickEvery` seconds the game pauses and both
+// choose one of five random attack power-ups.
+// pvp scales every hit one fighter lands on the other, so 1000 health lasts a fight instead of a few seconds.
+// size: duel fighters are drawn (and hit) this many times their normal size, so they read clearly across the arena.
+export const DUEL = { cd: 5, // every ability cooldown in the arena
+ hp: 1000, len: 600, pickEvery: 30, count: 3, offer: 5, stage: 2, pvp: 0.06, arena: 42, size: 2.25,
+ // Status effects one fighter lands on the other (Ice Gun block, frost slow, hammer shove...): longest freeze / slow, and the grace after a thaw.
+ freezeMax: 3, slowMax: 3, thawImmune: 2 };
+// Gravity Gun: a well pulls everything within `pull` m toward its centre for `dur` seconds, then collapses in a blast of
+// radius `blast`. Bosses are pulled only `boss` m (weakly) and take `bossDmg`. Friends are pulled too, never hurt.
+export const HEAL = { self: 0.1, beam: 1.2 }; // Healing Staff: share of max HP you mend yourself, seconds the beams stay up
+export const GRAV = { dur: 1.25, pull: 14, blast: 9, dmg: 600, boss: 5, bossDmg: 150, max: 6 };
+// The first Duel Arena's look: a bright, flat green plain with the walled arena in the middle (not one of the six run stages).
+export const DUEL_BIOME = {
+  id: 'meadow', name: 'Green Plains', seedTex: 505,
+  groundCols: [[0.2, 0.36, 0.11], [0.3, 0.46, 0.15], [0.26, 0.3, 0.12]], ground: 'pebbles',
+  sky: [0x3f86d8, 0xbfe3f2], fog: 0xcde6e6, fogDensity: 0.0055, sun: 0xfff0d0, sunI: 2.7, hemi: [0xcfe6ff, 0x4f7a34], hemiI: 0.95,
+  props: [], mobTint: 0x6f8f5a,
+};
+// Two more bright arenas. The host picks one of the three for every match (HostSim.startDuel) and sends its index in the snapshot.
+// stone: tint of the arena's own stonework and cover, rune: colour of its glowing decal, stage: which stage's music plays (BIOMES index).
+export const DUEL_DUNES = {
+  id: 'dunes', name: 'Sun Dunes', seedTex: 515,
+  groundCols: [[0.86, 0.68, 0.38], [0.96, 0.8, 0.46], [0.74, 0.52, 0.26]], ground: 'smooth',
+  sky: [0x2c7be4, 0xcde8f6], fog: 0xefe2bf, fogDensity: 0.0042, sun: 0xfff1c8, sunI: 3.0, hemi: [0xd2e6ff, 0xc9a064], hemiI: 1.0,
+  props: [], mobTint: 0xc29a6a, stone: [0.9, 0.62, 0.38], rune: 0xe0a030, stage: 2,
+};
+export const DUEL_FROST = {
+  id: 'frost', name: 'Frostfield', seedTex: 525,
+  groundCols: [[0.8, 0.9, 0.98], [0.93, 0.97, 1.0], [0.62, 0.8, 0.95]], ground: 'smooth',
+  sky: [0x3f8cf0, 0xd6ecfb], fog: 0xdcebf7, fogDensity: 0.0042, sun: 0xfff6ea, sunI: 2.8, hemi: [0xd6eaff, 0xa9bfd8], hemiI: 1.05,
+  props: [], mobTint: 0xa8c4dc, stone: [0.74, 0.86, 0.98], rune: 0x3a9ad8, stage: 3,
+};
+export const DUEL_BIOMES = [DUEL_BIOME, DUEL_DUNES, DUEL_FROST];
+const dp = (id, icon, name, desc, apply) => ({ id: 'd_' + id, kind: 'duel', lv: false, icon, name, desc, apply });
+const byId = (id) => POWERUPS.find((p) => p.id === id);
+export const DUEL_PICKS = [
+  byId('orbit'), byId('aura'), byId('dmg'), byId('rate'), byId('leech'), byId('armor'), byId('hp'), byId('spd'), byId('cd'),
+  byId('m_q_dmg'), byId('m_r_dmg'), byId('m_e_dmg'), byId('m_d_dmg'),
+  ELEMENTS.find((e) => e.el === 'fire'), ELEMENTS.find((e) => e.el === 'earth'), ELEMENTS.find((e) => e.el === 'wind'),
+  dp('blades', '⚔', 'Blade Storm', 'Two more razor blades whirl around you (stacks)', (s) => (s.orbit += 2)),
+  dp('ring', '◉', 'Inferno Ring', 'A wider ring of fire burns everything near you (stacks)', (s) => (s.aura += 2)),
+  dp('berserk', '☄', 'Berserker', '+25% damage, but you take 8% more', (s) => { s.dmg *= 1.25; s.armor = 1 - (1 - s.armor) * 1.08; }),
+  dp('glass', '✦', 'Glass Cannon', '+40% damage, -120 max HP', (s) => { s.dmg *= 1.4; s.maxHp -= 120; }),
+  dp('rush', '≫', 'Bloodrush', '+20% attack speed and +10% move speed', (s) => { s.rate *= 1.2; s.speed *= 1.1; }),
+  dp('vamp', '♥', 'Soul Siphon', 'Heal 8% of damage dealt', (s) => (s.lifesteal += 0.08)),
+];
+
+export const POWERUP_BY_ID = Object.fromEntries([...POWERUPS, ...ELEMENTS, ...DUEL_PICKS].map((p) => [p.id, p]));
+
+// Every level-up offers ten cards: six fixed picks, a random physical attack power-up, a random element,
+// a random utility stat and a random power mastery.
+const PHYSICAL = ['orbit', 'aura', 'burst', 'rate', 'leech', 'crit', 'execute', 'bigmag', 'fastreload', 'heavy'];
+const UTILITY = ['hp', 'cd', 'armor', 'learn'];
+const MASTERY = POWERUPS.filter((p) => p.kind === 'ability').map((p) => p.id);
+export function levelOffer() {
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const by = (id) => POWERUP_BY_ID[id];
+  return [by('dmg'), by('spd'), by('jump'), by('eldmg'), by('extra'), by('regen'), by(pick(PHYSICAL)), pick(ELEMENTS), by(pick(UTILITY)), by(pick(MASTERY))];
+}
+
+// A reroll: ten different picks drawn from the 30 reroll power-ups, never any that are on screen now.
+export function rerollOffer(current) {
+  const cur = new Set((current || []).map((o) => o.id));
+  const pool = POWERUPS.filter((p) => p.rr && !cur.has(p.id));
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return pool.slice(0, 10);
+}
+
+// XP: each kill feeds the bar, each full bar grants a random level-up power-up.
+export const XP = {
+  kill: { 1: 4, 2: 8, 3: 14 }, mini: 60, boss: 200, perRound: 0.08,
+  need: (lv) => Math.round(40 + 22 * lv + lv * lv * 1.0), // levels come slowly enough that a build grows over the whole run
+};
+
+export function freshStats() {
+  return {
+    dmg: 1, rate: 1, maxHp: CONFIG.baseHp, speed: 1, cdr: 1, lifesteal: 0, regen: 0, armor: 0,
+    xpGain: 1, elem: { fire: 0, frost: 0, storm: 0, earth: 0, wind: 0 }, orbit: 0, aura: 0, burst: 0, magnet: 0, phoenix: 0, greed: 1,
+    jump: 1, extra: 0, reach: 1, crit: 0, execute: 0, mag: 1, reload: 1, kb: 0,
+    mast: { q: { dmg: 1, cd: 1 }, r: { dmg: 1, cd: 1 }, e: { dmg: 1, cd: 1 }, d: { dmg: 1, cd: 1 } },
+  };
+}
+
+// Each run visits the six stages in its own order, shuffled from the run seed.
+// Bosses are tied to their stage, so a stage always brings its own boss.
+// The last round is always Fear; every other round fights the boss of its stage.
+// The run seed's low bits carry the run's settings so every seat agrees on them: bit 0 = the hidden space map is in the pool, bit 1 = Hard mode.
+export const SEED_SPACE = 1, SEED_HARD = 2;
+export const seedFlags = (seed) => ({ space: ((seed | 0) & SEED_SPACE) !== 0, hard: ((seed | 0) & SEED_HARD) !== 0 });
+// Stages 0-5 are the original six, 6 the Hot Springs Valley, 7 the space map. Boss indices: stage s fights BOSSES[s] (6 is Fear, so the
+// springs map uses 7 and the space map 8); the last round is always Fear.
+export function bossIdx(runSeed, round) { return round >= CONFIG.rounds ? 8 : round >= CONFIG.rounds - 1 ? 6 : ((s) => (s === 6 ? 7 : s === 7 ? 8 : s))(stageIdx(runSeed, round)); }
+export function stageIdx(runSeed, round) {
+  if (round >= CONFIG.rounds) return 7; // the optional bonus round after Fear is always the space map
+  const order = seedFlags(runSeed).space ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3, 4, 5, 6];
+  let a = (runSeed | 0) >>> 0;
+  const rnd = () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  const run = order.slice(0, 6); // each run visits six of the stages
+  if (run[5] === 7) [run[5], run[0]] = [run[0], run[5]]; // the space map's boss is The Visitor, so it can never be the Fear round
+  return run[((round % 6) + 6) % 6];
+}
+
+// Every character can dash; the burst of power it shows matches their element.
+export const DASH = { cd: 3, dist: 7, t: 0.17, dmg: 30 };
+
+// Mini bosses: a big, slow-to-kill version of a normal enemy that drops health pickups.
+// Elite enemies: a normal enemy now and then carries a glowing modifier. hp: health multiplier, speed: speed multiplier.
+// 1 Explosive (blows up when it dies), 2 Shielded (a glowing shell soaks the first hits), 3 Swift (fast and fragile), 4 Splitting (two smaller copies burst out when it dies).
+export const ELITE = {
+  chance: (round) => Math.min(0.3, 0.07 + 0.04 * round), pcMul: 3, shield: 0.6, splitHp: 0.35, blast: { r: 4.2, d: 0.7, dmg: 30 },
+  kinds: [null,
+    { id: 1, name: 'Explosive', color: [1, 0.45, 0.1], hp: 1.3, speed: 1.05 },
+    { id: 2, name: 'Shielded', color: [0.35, 0.8, 1], hp: 1.2, speed: 1 },
+    { id: 3, name: 'Swift', color: [0.95, 1, 0.3], hp: 0.8, speed: 1.55 },
+    { id: 4, name: 'Splitting', color: [0.85, 0.4, 1], hp: 1.4, speed: 1 },
+  ],
+};
+export const MINI = { hpMul: 7, hpPerRound: 0.8, dmgMul: 1.25, size: 1.5, drops: 4, heal: 0.2, pcMul: 6 };

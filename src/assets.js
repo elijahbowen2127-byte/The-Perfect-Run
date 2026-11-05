@@ -4,6 +4,7 @@
 // repacked into an in-memory GLB before parsing, so no data: or blob: URL is
 // ever fetched (strict content security policies block those).
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { loadScan } from './scan.js';
 
 const cache = new Map();
 export const ASSET_FILES = ['veteran.glb', 'xbot.glb', 'clown.glb', 'soldier.glb', 'scalefang.glb', 'michelle.glb', 'sorceress.glb', 'skull.glb', 'runeSword.glb', 'frostAxe.glb', 'moltenDagger.glb'];
@@ -16,7 +17,7 @@ function b64ToBytes(b64) {
 }
 
 // glTF JSON with one inlined buffer -> GLB ArrayBuffer.
-function toGLB(json) {
+export function toGLB(json) {
   let bin = new Uint8Array(0);
   if (json.buffers && json.buffers.length) {
     const uri = json.buffers[0].uri || '';
@@ -41,6 +42,7 @@ function toGLB(json) {
 export async function loadAssets(onProgress) {
   const loader = new GLTFLoader();
   let done = 0;
+  const scanP = loadScan();
   await Promise.all(ASSET_FILES.map(async (f) => {
     try {
       const res = await fetch('assets/' + f.replace(/\.glb$/, '.json'));
@@ -53,6 +55,7 @@ export async function loadAssets(onProgress) {
     done++;
     if (onProgress) onProgress(done / ASSET_FILES.length, f);
   }));
+  await scanP;
 }
 
 export function assetGLTF(file) { return cache.get(file) || null; }
