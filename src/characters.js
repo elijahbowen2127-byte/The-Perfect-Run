@@ -24,14 +24,14 @@ import { buildThermes } from './thermes.js';
 
 export const CHARACTERS = [
   { id: 'grey', name: 'The Visitor', role: 'Grey', blurb: 'Smooth grey skin, a head too big for its neck and two black eyes that never blink. It does not say where it is from. Light, quick and unsettling.', file: 'veteran.glb', tposeArms: true, build: 'grey', height: 1.64, bulk: 0.95, stats: { hp: 0.92, speed: 1.1 } },
-  { id: 'veteran', name: 'The Veteran', role: 'Tank', blurb: 'A towering WW2 rifleman who never left the war. His bullets heal teammates.', file: 'veteran.glb', tposeArms: true, height: 1.97, bulk: 1.1, healShots: true, stats: { hp: 1.25, speed: 0.95 } },
+  { id: 'veteran', name: 'Blitz', role: 'Tank', blurb: 'Black-ops plate from boots to visor and a habit of walking straight through the firefight. His bullets heal teammates.', file: 'blitz.glb', tposeArms: true, height: 1.97, bulk: 1.05, healShots: true, stats: { hp: 1.25, speed: 0.95 } }, // was The Veteran (Nutty 2026-11-05: Mixamo #2, renamed Blitz)
   { id: 'bonelord', name: 'Bonelord', role: 'Skeleton', blurb: 'A soldier\'s skeleton that refused to stay buried.', file: 'xbot.glb', build: 'skeleton', height: 1.86, stats: { hp: 0.9, speed: 1.08 } },
   { id: 'scalefang', name: 'Scalefang', role: 'Lizard', blurb: 'Cold-blooded hunter from the swamps. Tail and all.', file: 'xbot.glb', build: 'reptilian', height: 1.9, stats: { hp: 1.1, speed: 1.0 } },
   { id: 'nyx', name: 'Nyx', role: 'Huntress', blurb: 'White hair, red eyes, and a very short temper.', file: 'michelle.glb', height: 1.72, stats: { hp: 0.95, speed: 1.06 } },
   { id: 'ironwood', name: 'Ironwood', role: 'Super Soldier', blurb: 'Moss-green power armour, a visor that never blinks and exactly one plan: stand in front of everyone else.', file: 'soldier.glb', build: 'ironwood', height: 1.9, bulk: 1.1, stats: { hp: 1.2, speed: 0.96 } },
   { id: 'gigachad', name: 'Giga Tyrone', role: 'Absolute Unit', blurb: 'Jaw first, questions never. Tyrone has won every staring contest, handshake and argument with gravity, and he never skips leg day.', file: 'xbot.glb', build: 'chad', armPose: { out: 0.2, fwd: 0.14, bend: 0.3 }, height: 1.96, stats: { hp: 1.15, speed: 1.0 } },
-  { id: 'quill', name: 'Quill', role: 'Tinker Ranger', blurb: 'A curious clay-and-cream tinkerer who follows a little eight-pointed spark that always knows a better way.', file: 'xbot.glb', build: 'quill', height: 1.74, stats: { hp: 0.98, speed: 1.07 } },
-  { id: 'knight', name: 'Sir Aldric', role: 'Knight', blurb: 'Full plate, a great helm and a vow he takes far too seriously. Slow, loud and very hard to put down.', file: 'veteran.glb', tposeArms: true, build: 'knight', height: 1.92, bulk: 0.9, stats: { hp: 1.25, speed: 0.92 } },
+  { id: 'ragmon', name: 'Ragmon', role: 'Blank', blurb: 'A faceless figure with no past and nothing to hide behind. Nobody knows what Ragmon is. Ragmon does not know either.', file: 'ragmon.glb', tposeArms: true, height: 1.8, stats: { hp: 1.0, speed: 1.03 } }, // Nutty 2026-11-05: Mixamo #27
+  { id: 'knight', name: 'Sir Aldric', role: 'Knight', blurb: 'Full plate, a great helm and a vow he takes far too seriously. Slow, loud and very hard to put down.', file: 'aldric.glb', tposeArms: true, height: 1.92, bulk: 0.95, stats: { hp: 1.25, speed: 0.92 } }, // Nutty 2026-11-05: Mixamo #1 body, same name (was the hand-built knight on veteran.glb)
   { id: 'ninja', name: 'Kiri', role: 'Ninja', blurb: 'Black shinobi shozoku, a short blade on the back and no footsteps worth hearing. Fast, quiet, fragile.', file: 'veteran.glb', tposeArms: true, build: 'ninja', height: 1.74, bulk: 0.96, stats: { hp: 0.9, speed: 1.12 } },
   { id: 'corsair', name: 'Captain Saltvane', role: 'Pirate Captain', blurb: 'Tricorne, frock coat, one good eye and a parrot that swears in four languages. Yo ho.', file: 'veteran.glb', tposeArms: true, build: 'corsair', height: 1.84, stats: { hp: 1.08, speed: 0.98 } },
 ];
@@ -89,7 +89,7 @@ function skinBodyMaterials(scene, def, skin) {
     if (!o.isMesh || !re.test(o.name)) return;
     o.material = Array.isArray(o.material) ? o.material.map((m) => fn(m.clone())) : fn(o.material.clone());
   });
-  if (def.id === 'veteran' && skin.suit) {
+  if (def.id === 'veteran' && def.file === 'veteran.glb' && skin.suit) {
     const r = skin.suit;
     edit(/Outfit_(Top|Bottom)/, (m) => {
       if (m.map && m.map.image) m.map = recolorTexture(m.map, skin.id, (h, sat, l) => [h + r.dh, sat * r.sk, l * r.lk + (r.l0 || 0)]).map;
@@ -160,7 +160,7 @@ export function getTemplate(def, skinId) {
   else if (def.build === 'grey') buildGrey(scene, design ? { ...skin, design } : skin);
   else if (def.build === 'thermes') buildThermes(scene, skin);
   skinBodyMaterials(scene, def, skin);
-  if (def.id === 'veteran') buildVeteranGear(scene, skin.gear);
+  if (def.id === 'veteran' && def.file === 'veteran.glb') buildVeteranGear(scene, skin.gear);
   if (def.id === 'nyx') buildLongHair(scene, { color: skin.hair || 0xf2f2fa });
   scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; } });
   // Normalise height and facing (+Z forward).
@@ -752,7 +752,7 @@ export function setCharacterScale(model, k) {
 }
 
 // Footstep flavour per character (see Audio.footstep).
-export const STEP_KIND = { veteran: 'boot', ironwood: 'heavy', gigachad: 'heavy', bonelord: 'bone', scalefang: 'claw', nyx: 'soft', quill: 'soft', knight: 'heavy', ninja: 'soft', corsair: 'boot', grey: 'soft' };
+export const STEP_KIND = { ragmon: 'soft', veteran: 'boot', ironwood: 'heavy', gigachad: 'heavy', bonelord: 'bone', scalefang: 'claw', nyx: 'soft', quill: 'soft', knight: 'heavy', ninja: 'soft', corsair: 'boot', grey: 'soft' };
 
 // Distance-driven steps: call every frame with the speed and whether the body is on the ground.
 // Returns the new stride accumulator; plays at most one step per call.

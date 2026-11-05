@@ -14,36 +14,36 @@ import { animateTail } from './lizard.js';
 // h: standing height in metres. hunch: forward lean of the spine (radians).
 // float: hover height for spirits. bulk: horizontal thickening.
 export const MOB_LOOKS = {
-  grunt: { file: 'scalefang.glb', h: 1.8, hunch: 0.32, tint: 0xa9b59c, rough: 0.75 },
-  runner: { file: 'scalefang.glb', h: 1.62, hunch: 0.6, tint: 0xe0c8c0, bulk: 0.86 },
+  grunt: { file: 'm04.glb', tposeArms: true, h: 1.8, hunch: 0.32, rough: 0.75 }, // #4 zombie soldier
+  runner: { file: 'm07.glb', tposeArms: true, h: 1.62, hunch: 0.6, bulk: 0.9 }, // #7 rotted woman
   spitter: { file: 'xbot.glb', build: 'lizard', body: 'xbot', lizard: { base: 0x5e7a14, belly: 0xe2d27a }, h: 1.8, hunch: 0.25, cast: true },
   crawler: { file: 'xbot.glb', build: 'skeleton', eye: 0xff4a2a, h: 1.4, hunch: 0.95 },
-  brute: { file: 'scalefang.glb', h: 3.0, hunch: 0.28, tint: 0x8c9874, bulk: 1.3 },
+  brute: { file: 'm14.glb', tposeArms: true, h: 3.0, hunch: 0.28, bulk: 1.2 }, // #14 shirtless strongman
   wraith: { file: 'xbot.glb', build: 'skeleton', eye: 0x9fe8ff, h: 2.0, hunch: 0.2, ghost: 0x7fd8ff, float: 0.45 },
   hexer: { file: 'clown.glb', h: 2.0, hunch: 0.1, tint: 0xb9a6d6, cast: true, orb: 0xb06aff, horns: true },
-  ravager: { file: 'scalefang.glb', h: 2.45, hunch: 0.5, tint: 0xff8a7a, bulk: 1.15, horns: true, hornScale: 1.6 },
+  ravager: { file: 'm11.glb', tposeArms: true, h: 2.45, hunch: 0.5, bulk: 1.1, horns: true, hornScale: 1.6 }, // #11 dark flesh monster
   juggernaut: { file: 'soldier.glb', h: 3.4, hunch: 0.12, tint: 0x7c7f8c, bulk: 1.25, visor: 0xff3a1a },
   banshee: { file: 'sorceress.glb', h: 1.95, hunch: 0.05, ghost: 0xff8ad0, float: 0.6, cast: true },
   // Flyers: a winged imp that dives, and a bone archer that hovers and shoots.
-  gloomwing: { file: 'scalefang.glb', h: 1.55, hunch: 0.35, tint: 0x8a6a9c, bulk: 0.9, horns: true, hornScale: 1.2, fly: true, wings: { membrane: 0x9a62b0, bone: 0x3a2430, span: 0.95 } },
+  gloomwing: { file: 'm10.glb', tposeArms: true, h: 1.55, hunch: 0.35, bulk: 0.9, horns: true, hornScale: 1.2, fly: true, wings: { membrane: 0x9a62b0, bone: 0x3a2430, span: 0.95 } }, // #10 red flesh
   skyhunter: { file: 'xbot.glb', build: 'skeleton', eye: 0x9fe8ff, h: 1.9, hunch: 0.15, fly: true, wings: { membrane: 0xb9c6d4, bone: 0xe8e0cc, span: 1.25, alpha: 0.72 } },
   // Summoned from hell by the Zombie Staff: the rigged veteran avatar rotted green-grey (see rotDress), arms out in front, glowing eyes.
   // Variants. gear: rigid props (see buildGear). tele: glow colour while winding up an ability. aura: ambient particles.
   bulwark: { file: 'soldier.glb', h: 2.2, hunch: 0.08, tint: 0x6486bb, bulk: 1.2, visor: 0xffc040, gear: ['tower'], tele: [0.9, 0.9, 1] },
   bomber: { file: 'clown.glb', h: 1.5, hunch: 0.3, tint: 0xf09040, lift: 0.3, gear: ['keg'], tele: [1, 0.45, 0.1], aura: 'spark' },
-  pouncer: { file: 'scalefang.glb', h: 1.5, hunch: 0.95, tint: 0xe8b838, lift: 0.22, bulk: 0.9, gear: ['ridge'], tele: [1, 0.9, 0.3] },
+  pouncer: { file: 'm19.glb', tposeArms: true, h: 1.5, hunch: 0.95, lift: 0.22, bulk: 0.9, gear: ['ridge'], tele: [1, 0.9, 0.3] }, // #19 wrapped mummy
   hatchling: { file: 'xbot.glb', build: 'lizard', body: 'xbot', lizard: { base: 0xe2d41c, belly: 0xfff6a0 }, h: 0.95, hunch: 0.5 },
   cinder: { file: 'xbot.glb', build: 'lizard', body: 'xbot', lizard: { base: 0x9a1c0c, belly: 0xff7a20 }, h: 2.15, hunch: 0.3, horns: true, hornScale: 1.5, gear: ['embers'], aura: 'fire' },
   venomfang: { file: 'clown.glb', h: 1.75, hunch: 0.5, tint: 0xa8e048, lift: 0.2, gear: ['sacs'], aura: 'poison' },
   necro: { file: 'xbot.glb', build: 'skeleton', eye: 0x7dffb0, h: 2.0, hunch: 0.25, gear: ['robe', 'staff'], tele: [0.4, 1, 0.65], aura: 'wisp' },
   boneling: { file: 'xbot.glb', build: 'skeleton', eye: 0x7dffb0, h: 1.15, hunch: 0.6 },
   archer: { file: 'soldier.glb', h: 1.9, hunch: 0.15, tint: 0xa48c58, lift: 0.2, gear: ['bow', 'quiver'], tele: [1, 0.95, 0.7] },
-  troll: { file: 'scalefang.glb', h: 3.0, hunch: 0.3, tint: 0xa28a5a, lift: 0.16, bulk: 1.4, gear: ['club'] },
+  troll: { file: 'm03.glb', tposeArms: true, h: 3.0, hunch: 0.3, lift: 0.16, bulk: 1.3, gear: ['club'] }, // #3 big old man in a coat
   ogre: { file: 'soldier.glb', h: 3.5, hunch: 0.2, tint: 0xc08068, lift: 0.06, bulk: 1.5, slam: true, horns: true, hornScale: 2.2, gear: ['fists'], tele: [1, 0.5, 0.3] },
   // Goblins: the ghoul's goblin body, green-skinned, small and quick; the shaman wears a robe and carries a skull staff, the chief a club and a shield.
-  goblin: { file: 'scalefang.glb', h: 1.35, hunch: 0.55, bulk: 0.9, tint: 0x6ab83a, lift: 0.08, gear: ['dagger'] },
-  gobshaman: { file: 'scalefang.glb', h: 1.5, hunch: 0.35, bulk: 0.88, tint: 0x4e9a40, lift: 0.08, cast: true, orb: 0x8aff30, gear: ['robe', 'staff'], tele: [0.5, 1, 0.2] },
-  gobchief: { file: 'scalefang.glb', h: 2.2, hunch: 0.3, bulk: 1.3, tint: 0x8a9a30, lift: 0.06, slam: true, horns: true, hornScale: 1.2, gear: ['club', 'tower'], tele: [1, 0.7, 0.2] },
+  goblin: { file: 'm05.glb', tposeArms: true, h: 1.35, hunch: 0.55, bulk: 0.9, lift: 0.08, gear: ['dagger'] }, // #5 purple imp
+  gobshaman: { file: 'm23.glb', tposeArms: true, h: 1.5, hunch: 0.35, bulk: 0.9, lift: 0.08, cast: true, orb: 0x8aff30, gear: ['staff'], tele: [0.5, 1, 0.2] }, // #23 red hooded cleric
+  gobchief: { file: 'm06.glb', tposeArms: true, h: 2.2, hunch: 0.3, bulk: 1.2, lift: 0.06, slam: true, gear: ['club', 'tower'], tele: [1, 0.7, 0.2] }, // #6 crusader
   // Humans: the hero bodies turned hostile. Cutthroat = the pirate build, Shadow Blade = the ninja, the rifleman a plain soldier, the witch a hooded woman.
   bandit: { file: 'veteran.glb', tposeArms: true, build: 'corsair', h: 1.84, hunch: 0.25, tint: 0xb8a898, gear: ['blade'] },
   rifleman: { file: 'veteran.glb', tposeArms: true, h: 1.9, hunch: 0.15, tint: 0x9a9a8a, gear: ['rifle'], tele: [1, 0.9, 0.6] },
@@ -52,26 +52,34 @@ export const MOB_LOOKS = {
   // The hidden space map: aliens in every shape and colour. The grey build (the Visitor's body, designs 1 short dome / 2 tall egg / 3 broad brow) in
   // their own skins (skins.js mob_*), plus insectoids, floaters and a bruiser on the other rigs.
   zorp: { file: 'veteran.glb', tposeArms: true, build: 'grey', design: 1, h: 1.15, hunch: 0.35 },
-  skree: { file: 'xbot.glb', build: 'lizard', body: 'xbot', lizard: { base: 0x1fb8c8, belly: 0xbff5ff }, h: 0.9, hunch: 0.6 },
+  skree: { file: 'xbot.glb', build: 'lizard', body: 'xbot', lizard: { base: 0x1fb8c8, belly: 0xbff5ff }, h: 2.9, hunch: 0.5 }, // was a knee-high skitterer; Nutty wants nothing small
   gloop: { file: 'veteran.glb', tposeArms: true, build: 'grey', design: 3, h: 1.65, hunch: 0.25, bulk: 1.25 },
-  gruk: { file: 'scalefang.glb', h: 3.0, hunch: 0.28, tint: 0xe05a30, bulk: 1.4, gear: ['fists'], slam: true, tele: [1, 0.5, 0.3] },
+  gruk: { file: 'm18.glb', tposeArms: true, h: 3.0, hunch: 0.28, bulk: 1.3, gear: ['fists'], slam: true, tele: [1, 0.5, 0.3] }, // #18 armoured trooper
   lanky: { file: 'veteran.glb', tposeArms: true, build: 'grey', design: 2, h: 2.7, hunch: 0.1, bulk: 0.9, tele: [0.8, 0.5, 1] },
   stinger: { file: 'veteran.glb', tposeArms: true, build: 'grey', design: 1, h: 1.8, hunch: 0.4, tele: [1, 0.9, 0.3] },
   brainer: { file: 'sorceress.glb', h: 2.0, hunch: 0.05, ghost: 0xff7ad0, float: 0.7, cast: true, orb: 0xff5ad0 },
   warden: { file: 'veteran.glb', tposeArms: true, build: 'grey', design: 3, h: 2.6, hunch: 0.15, bulk: 1.3, slam: true, tele: [0.3, 1, 0.9] },
-  wasp: { file: 'scalefang.glb', h: 1.5, hunch: 0.35, tint: 0xe8a820, bulk: 0.85, fly: true, wings: { membrane: 0xffb830, bone: 0x2a1a00, span: 0.9, alpha: 0.8 } },
+  surgeon: { file: 'surgeon.glb', tposeArms: true, h: 2.6, hunch: 0.2, fly: true, wings: { membrane: 0xd8f0f4, bone: 0x3a4a50, span: 1.2, alpha: 0.75 } },
+  wasp: { file: 'm29.glb', tposeArms: true, h: 2.8, hunch: 0.35, bulk: 0.95, fly: true, wings: { membrane: 0xffb830, bone: 0x2a1a00, span: 1.1, alpha: 0.8 } }, // #29 striped alien
   // The Hot Springs Valley's boss and the hidden space map's boss, The Visitor (boss rigs are boss + BOSSES index).
-  boss7: { file: 'scalefang.glb', h: 8.6, hunch: 0.3, tint: 0x7aa05a, bulk: 1.35, horns: true, hornScale: 1.6, slam: true, hands: 0x9aff6a },
+  boss7: { file: 'gus.glb', tposeArms: true, h: 8.6, hunch: 0.3, bulk: 1.0, slam: true, hands: 0x9aff6a }, // old Mossback body retired (goblin body removed 2026-11-05)
   boss8: { file: 'veteran.glb', tposeArms: true, build: 'grey', design: 2, h: 10.5, hunch: 0.1, bulk: 1.15, slam: true, hands: 0x7dffb0 },
+  // Mixamo bosses (Nutty 2026-11-05): the characters' own textures, scaled up to boss height.
+  boss9: { file: 'warlord.glb', tposeArms: true, h: 8.0, hunch: 0.12, bulk: 1.0, slam: true, hands: 0x9a3aff },
+  boss10: { file: 'archmage.glb', tposeArms: true, h: 7.6, hunch: 0.1, bulk: 1.0, slam: true, hands: 0xff5ad0 },
+  boss11: { file: 'flayed.glb', tposeArms: true, h: 8.4, hunch: 0.3, bulk: 1.05, slam: true, hands: 0xff4a3a },
+  boss12: { file: 'rotgut.glb', tposeArms: true, h: 7.0, hunch: 0.35, bulk: 1.0, slam: true, hands: 0x9aff4a },
+  boss13: { file: 'king.glb', tposeArms: true, h: 8.8, hunch: 0.05, bulk: 1.0, slam: true, hands: 0xffd04a },
+  boss14: { file: 'gus.glb', tposeArms: true, h: 8.2, hunch: 0.1, bulk: 1.0, slam: true, hands: 0xffa040 },
   // Knights: the player's own plate-armour build as an enemy; the dread knight is bigger, blackened and smashes the ground.
   knight: { file: 'veteran.glb', tposeArms: true, build: 'knight', h: 2.0, hunch: 0.1, bulk: 0.95, gear: ['sword', 'kite'], tele: [0.9, 0.9, 1] },
   dreadknight: { file: 'veteran.glb', tposeArms: true, build: 'knight', h: 2.4, hunch: 0.12, bulk: 1.1, tint: 0x3a2a3a, lift: 0.12, slam: true, gear: ['greatsword'], tele: [1, 0.2, 0.2] },
   // Bosses: giants built from the same bodies, one per round.
   boss0: { file: 'xbot.glb', build: 'skeleton', eye: 0x7dffb0, h: 8.0, hunch: 0.25, bulk: 1.15, slam: true, hands: 0x7dffb0 },
   boss1: { file: 'xbot.glb', build: 'lizard', body: 'xbot', lizard: { base: 0x557f1e, belly: 0xd6e48a }, h: 8.0, hunch: 0.35, bulk: 1.2, slam: true, hands: 0xb6ff4a },
-  boss2: { file: 'scalefang.glb', h: 7.6, hunch: 0.35, tint: 0xf0c890, bulk: 1.25, horns: true, hornScale: 1.4, slam: true },
+  boss2: { file: 'archmage.glb', tposeArms: true, h: 7.6, hunch: 0.35, bulk: 1.0, slam: true },
   boss3: { file: 'soldier.glb', h: 8.2, hunch: 0.1, tint: 0x9cc4e8, bulk: 1.2, visor: 0x9fe8ff, slam: true },
-  boss4: { file: 'scalefang.glb', h: 8.8, hunch: 0.3, tint: 0x9a5a4a, bulk: 1.3, horns: true, hornScale: 1.8, slam: true, hands: 0xff6a1a },
+  boss4: { file: 'warlord.glb', tposeArms: true, h: 8.8, hunch: 0.3, bulk: 1.0, slam: true, hands: 0xff6a1a },
   boss5: { file: 'sorceress.glb', h: 9.2, hunch: 0.0, ghost: 0xb08aff, float: 1.2, cast: true, hands: 0xd9a0ff },
 };
 
@@ -86,7 +94,7 @@ for (const [k, l] of Object.entries(MOB_LOOKS)) {
 }
 
 // Fear's echoes: the beaten bosses, back at roughly twice a mob's height.
-for (const i of [0, 1, 2, 3, 4, 5, 7, 8]) { const b = MOB_LOOKS['boss' + i]; if (b) MOB_LOOKS['echo' + i] = { ...b, h: (b.h || 8) * 0.5 }; }
+for (const i of [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14]) { const b = MOB_LOOKS['boss' + i]; if (b) MOB_LOOKS['echo' + i] = { ...b, h: (b.h || 8) * 0.5 }; }
 // Thermes: the shirtless demonic viking deity (src/thermes.js), purple pulsing skin, blue aura, laser eyes.
 // No short mobs (Nutty 2026-11-05): every regular mob stands at least MOB_MIN_H, and its hit size grows with it.
 for (const [k, l] of Object.entries(MOB_LOOKS)) {

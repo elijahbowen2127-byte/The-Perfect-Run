@@ -144,7 +144,7 @@ export function crystalCluster(seed, n, size) {
 }
 
 export function propLibrary(biome, Q = 2) {
-  const id = biome.id;
+  const id = biome.tex || biome.id;
   const stoneTint = id === 'desert' ? [0.78, 0.6, 0.42] : id === 'frozen' ? [0.6, 0.66, 0.74] : id === 'volcanic' ? [0.22, 0.19, 0.18] : id === 'abyss' ? [0.22, 0.18, 0.3] : [0.52, 0.52, 0.5];
   const stone = stoneMat(stoneTint);
   const tomb = stoneMat([0.6, 0.6, 0.58]);

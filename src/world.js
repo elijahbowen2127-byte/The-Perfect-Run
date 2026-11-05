@@ -18,7 +18,7 @@ const CELL = 96; // instanced props are split into spatial cells so frustum cull
 const smoothstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 // Visual-only extras per biome (not in data.js). Their own seeded stream keeps gameplay placement untouched.
-const EXTRA = { graveyard: ['puddle', 'stump'], forest: ['puddle', 'stump'], frozen: ['puddle'] };
+const EXTRA = { graveyard: ['puddle', 'stump'], forest: ['puddle', 'stump'], frozen: ['puddle'], waterfall: ['puddle', 'stump'], clearing: ['puddle', 'stump'], ruins: ['puddle'] };
 // Soft contact-shadow radius at unit scale for props that touch the ground.
 const BLOB = { rock: 1.5, snowrock: 1.6, tomb: 0.95, cross: 0.6, pine: 1.5, snowpine: 1.5, deadtree: 0.9, twisted: 1.9, mesa: 1.3, pillar: 1.2, basalt: 2.6, mausoleum: 4.4, log: 1.5, stump: 0.8, cactus: 0.7, icecrystal: 1.1, voidcrystal: 1.1, obsidian: 0.9, obelisk: 1.5, lantern: 0.3, mushroom: 0.45 };
 
@@ -53,7 +53,7 @@ export class World {
     this.spawn = { x: Math.cos(a) * 95, z: Math.sin(a) * 95 };
     const b = a + Math.PI + (r() - 0.5) * 1.2;
     this.arena = this.duel ? { x: 0, z: 0, r: DUEL.arena } : { x: Math.cos(b) * 85, z: Math.sin(b) * 85, r: 26 };
-    this.amp = this.duel ? 0 : { graveyard: 9, forest: 11, desert: 8, frozen: 16, volcanic: 13, abyss: 12, springs: 6, space: 8 }[this.biome.id];
+    this.amp = this.duel ? 0 : { graveyard: 9, forest: 11, desert: 8, frozen: 16, volcanic: 13, abyss: 12, springs: 6, space: 8, waterfall: 7, clearing: 5, volcano: 12, ruins: 7 }[this.biome.id] ?? 8;
 
     this.stage = null; this.carves = [];
     if (!this.duel) prepStage(this); // the stage's own ground shaping (ponds, craters) before the terrain mesh is built
@@ -85,7 +85,7 @@ export class World {
       h += Math.pow(n2.ridged(x * 0.02, z * 0.03, 3), 2) * 5;
       h += Math.sin((x * 0.8 + z * 0.35) * 0.1 + n.fbm(x * 0.012, z * 0.012, 2) * 7) * 0.45; // wind-formed dune ripples
     }
-    if (this.biome.id === 'frozen' || this.biome.id === 'volcanic') h += Math.pow(n.ridged(x * 0.015, z * 0.015, 4), 3) * 9;
+    if (this.biome.id === 'frozen' || this.biome.id === 'volcanic' || this.biome.id === 'volcano') h += Math.pow(n.ridged(x * 0.015, z * 0.015, 4), 3) * 9;
     const d = Math.hypot(x, z);
     const edge = 132 + (n2.noise2(Math.atan2(z, x) * 6, 3) - 0.5) * 16;
     if (d > edge) h += Math.pow(d - edge, 1.35) * 0.32;
@@ -131,7 +131,7 @@ export class World {
 
   // Layer weights for the terrain shader: x = secondary (dirt/ice/ash), y = special (gravel/moss/powder), z = rock bias.
   splat(x, z, y, ny) {
-    const id = this.biome.id, n1 = this.noise2.noise2(x * 0.035 + 7, z * 0.035), n2 = this.noise.noise2(x * 0.014 + 50, z * 0.014 + 9), n3 = this.noise2.noise2(x * 0.09 + 9, z * 0.09 + 3);
+    const id = this.biome.tex || this.biome.id, n1 = this.noise2.noise2(x * 0.035 + 7, z * 0.035), n2 = this.noise.noise2(x * 0.014 + 50, z * 0.014 + 9), n3 = this.noise2.noise2(x * 0.09 + 9, z * 0.09 + 3);
     const pd = this.pathDist(x, z), wob = (this.noise2.noise2(x * 0.2, z * 0.2) - 0.5) * 1.4;
     const pk = 1 - smoothstep(1.1, 3.4, pd + wob);
     const camp = 1 - smoothstep(9, 17, Math.hypot(x - this.spawn.x, z - this.spawn.z));
@@ -245,6 +245,17 @@ export class World {
     if (this.platforms) {
       for (const pf of this.platforms) {
         if (pf.air || (y !== undefined && y >= pf.top - 0.35)) continue;
+        if (pf.box) {
+          // A box (a building, a wall, a roof): push out through the nearest side, in its own frame.
+          if (y !== undefined && pf.base !== undefined && y < pf.base - 0.5) continue; // walking under a raised floor or bridge
+          const c = Math.cos(pf.yaw || 0), s = Math.sin(pf.yaw || 0), dx = x - pf.x, dz = z - pf.z;
+          const lx = dx * c + dz * s, lz = -dx * s + dz * c, ox = pf.hw + r - Math.abs(lx), oz = pf.hd + r - Math.abs(lz);
+          if (ox <= 0 || oz <= 0) continue;
+          let nx = lx, nz = lz;
+          if (ox < oz) nx = Math.sign(lx || 1) * (pf.hw + r); else nz = Math.sign(lz || 1) * (pf.hd + r);
+          x = pf.x + nx * c - nz * s; z = pf.z + nx * s + nz * c;
+          continue;
+        }
         const dx = x - pf.x, dz = z - pf.z, d = Math.hypot(dx, dz), m = pf.r + r;
         if (d < m && d > 1e-4) { x = pf.x + (dx / d) * m; z = pf.z + (dz / d) * m; }
       }
@@ -262,7 +273,17 @@ export class World {
   // Ground height under a body whose feet are at y, counting jumpable platforms.
   standY(x, z, y) {
     let h = this.heightAt(x, z);
-    if (this.platforms) for (const pf of this.platforms) if (y >= pf.top - 0.35 && Math.hypot(x - pf.x, z - pf.z) < pf.r - 0.1) h = Math.max(h, pf.top);
+    if (this.platforms) for (const pf of this.platforms) {
+      if (pf.box) {
+        const c = Math.cos(pf.yaw || 0), s = Math.sin(pf.yaw || 0), dx = x - pf.x, dz = z - pf.z;
+        const lx = dx * c + dz * s, lz = -dx * s + dz * c;
+        if (Math.abs(lx) > pf.hw - 0.1 || Math.abs(lz) > pf.hd - 0.1) continue;
+        const top = pf.top - (pf.pitch || 0) * Math.abs(lx); // pitched roofs fall away from the ridge along local x
+        if (y >= top - 0.35) h = Math.max(h, top);
+        continue;
+      }
+      if (y >= pf.top - 0.35 && Math.hypot(x - pf.x, z - pf.z) < pf.r - 0.1) h = Math.max(h, pf.top);
+    }
     return h;
   }
 
@@ -311,7 +332,7 @@ export class World {
   buildProps() {
     const lib = propLibrary(this.biome, this.quality);
     const r = this.rng;
-    const lavaMat = this.biome.id === 'volcanic' ? this.makeLavaMaterial() : null;
+    const lavaMat = this.biome.id === 'volcanic' || this.biome.id === 'volcano' ? this.makeLavaMaterial() : null;
     const density = [0.55, 0.8, 1][this.quality];
     this.blobs = [];
     const tmpV = new THREE.Vector3();
@@ -416,6 +437,10 @@ export class World {
       abyss: { tufts: [], pebbles: [200, 380, 600], tint: [0.22, 0.18, 0.3], crystals: [60, 140, 240] },
       springs: { tufts: [['grass', [0.9, 1.7], [1600, 3600, 5400]], ['fern', [0.8, 1.4], [120, 300, 460]]], pebbles: [60, 120, 200], tint: [0.5, 0.54, 0.44] },
       space: { tufts: [], pebbles: [300, 560, 880], tint: [0.34, 0.2, 0.24], crystals: [50, 120, 200] },
+      waterfall: { tufts: [['grass', [0.9, 1.7], [1600, 3600, 5400]], ['fern', [0.8, 1.4], [140, 340, 520]]], pebbles: [80, 160, 260], tint: [0.5, 0.54, 0.44] },
+      clearing: { tufts: [['grass', [0.9, 1.6], [1200, 3000, 4600]], ['fern', [1.1, 1.9], [160, 440, 720]]], pebbles: [80, 160, 280], tint: [0.5, 0.5, 0.44] },
+      volcano: { tufts: [], pebbles: [360, 680, 1050], tint: [0.18, 0.15, 0.14] },
+      ruins: { tufts: [['grass', [0.9, 1.6], [1300, 3000, 4500]], ['fern', [0.8, 1.4], [80, 200, 320]]], pebbles: [120, 240, 400], tint: [0.5, 0.52, 0.46] },
     }[id];
     const ok = (x, z, minClear) => {
       if (Math.hypot(x, z) > 128) return null;
@@ -509,6 +534,10 @@ export class World {
       abyss: { n: 380, size: 0.12, col: [0.7, 0.4, 1.5], a: 0.9, vel: [0.05, 0.25, 0.04], add: true, box: [56, 22, 56], blink: 0.5 },
       springs: { n: 300, size: 0.09, col: [1.0, 0.95, 0.75], a: 0.6, vel: [0.3, 0.1, 0.2], add: false, box: [56, 14, 56], blink: 0 },
       space: { n: 420, size: 0.1, col: [2.4, 0.9, 0.3], a: 0.95, vel: [0.5, 1.1, 0.3], add: true, box: [56, 20, 56], blink: 0.4 },
+      waterfall: { n: 320, size: 0.1, col: [0.95, 0.98, 1.0], a: 0.45, vel: [0.4, -0.15, 0.25], add: false, box: [56, 16, 56], blink: 0 },
+      clearing: { n: 360, size: 0.1, col: [1.0, 0.92, 0.6], a: 0.7, vel: [0.25, 0.08, 0.15], add: true, box: [56, 14, 56], blink: 0.6 },
+      volcano: { n: 520, size: 0.09, col: [3.0, 0.9, 0.2], a: 1, vel: [0.4, 1.5, 0.25], add: true, box: [56, 22, 56], blink: 0.5 },
+      ruins: { n: 340, size: 0.14, col: [0.85, 0.88, 0.86], a: 0.3, vel: [0.3, 0.02, 0.15], add: false, box: [60, 12, 60], blink: 0 },
     }[id];
     const n = Math.round(P.n * [0.25, 0.5, 1][Q]);
     const seed = new Float32Array(n * 4), pos = new Float32Array(n * 3), r = mulberry32(this.seed + 31);
@@ -728,7 +757,7 @@ export class World {
     m.position.set(cx, 0, cz);
     m.castShadow = m.receiveShadow = true;
     this.group.add(m);
-    for (const p of this.platforms) if (p.top > y0 + 0.3 && p.top <= y0 + 1.2 && !p.air) this.blobs.push({ x: p.x, z: p.z, y: y0, r: p.r * 1.35 });
+    for (const p of this.platforms) if (!p.box && p.top > y0 + 0.3 && p.top <= y0 + 1.2 && !p.air) this.blobs.push({ x: p.x, z: p.z, y: y0, r: p.r * 1.35 });
   }
 
   // Does the segment from (ox,oy,oz) along unit dir stop at a duel solid? Returns the distance, or Infinity.

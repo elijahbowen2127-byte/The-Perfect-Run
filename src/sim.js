@@ -1,7 +1,7 @@
 // Host-authoritative simulation: enemies, bosses, the Demon Huntress, bought
 // NPCs, crates, the round clock and phase changes. Only the host runs this;
 // it reads every player's presence and writes the world snapshot `w`.
-import { CONFIG, MOBS, MOB_TYPES, BOSSES, BOSS_HP, BOSS_GROW, BOSS_HP_ROUND, BOSS_DMG_ROUND, bossIdx, BIOMES, STAGE_MOBS, STAGE_FLY, DEMON, NPCS, NPC_TYPES, stageIdx, SEED_SPACE, SEED_HARD, seedFlags, MINI, ELITE, DUEL, DUEL_BIOMES, GRAV } from './data.js';
+import { CONFIG, MOBS, MOB_TYPES, BOSSES, BOSS_HP, BOSS_GROW, BOSS_HP_ROUND, BOSS_DMG_ROUND, bossIdx, BIOMES, STAGE_MOBS, STAGE_FLY, FLYERS, DEMON, NPCS, NPC_TYPES, stageIdx, SEED_SPACE, SEED_HARD, seedFlags, MINI, ELITE, DUEL, DUEL_BIOMES, GRAV } from './data.js';
 
 const q10 = (v) => Math.round(v * 10);
 const EVENT_TTL = 1.6;
@@ -438,7 +438,7 @@ export class HostSim {
     // Weight within the round: weaker types show up more often. Ghoul/Stalker carry a small multiplier.
     const lineup = Object.fromEntries(pick.map((o) => [o.t, [50, 26, 14][MOBS[o.t].tier - 1] * (MOBS[o.t].w ?? 1) * (0.8 + Math.random() * 0.4)]));
     // From round 3 on, flyers join every lineup.
-    const fly = (stage && STAGE_FLY[stage.id]) || [];
+    const fly = (stage && STAGE_FLY[stage.id]) || [FLYERS[(r + ((this.runSeed | 0) & 3)) % FLYERS.length]];
     fly.forEach((f, i) => { lineup[f] = (i === 0 ? 16 : 9) * (0.8 + Math.random() * 0.4); });
     return lineup;
   }

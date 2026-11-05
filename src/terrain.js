@@ -123,12 +123,12 @@ export function makeTerrainMaterial(biome, q) {
     uEmit: { value: new THREE.Vector4(L[0].em, L[1].em, L[2].em, L[3].em) },
     uSlope: { value: new THREE.Vector2(0.17, 0.34) },
     uT: { value: 0 }, uSpark: { value: biome.id === 'frozen' || biome.id === 'frost' ? 1 : 0 }, uNS: { value: biome.id === 'frozen' || biome.id === 'frost' ? 0.9 : 1.15 },
-    uCrackCol: { value: new THREE.Color(crack[0], crack[1], crack[2]).multiplyScalar(biome.id === 'volcanic' ? 2.6 : 1.8) },
+    uCrackCol: { value: new THREE.Color(crack[0], crack[1], crack[2]).multiplyScalar(biome.id === 'volcanic' || biome.id === 'volcano' ? 2.6 : 1.8) },
   };
   uniforms.uTA = { value: new THREE.Vector3(1, 1, 1) }; uniforms.uTB = { value: new THREE.Vector3(1, 1, 1) };
   uniforms.uTS = { value: new THREE.Vector3(1, 1, 1) }; uniforms.uTR = { value: new THREE.Vector3(1, 1, 1) };
   // Photo-scanned ground: each scanned layer replaces its procedural one as soon as its two maps have loaded.
-  const scan = SCAN_ON && GROUND[biome.id];
+  const scan = SCAN_ON && (GROUND[biome.id] || GROUND[biome.tex]);
   if (scan) {
     const K = ['A', 'B', 'S', 'R'], inv = ['x', 'y', 'z', 'w'], rough = [0.92, 0.9, 0.9, 0.88];
     scan.forEach((ly, i) => {

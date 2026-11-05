@@ -899,7 +899,7 @@ export class Game {
     this.removeBedMesh();
     this.pickups.clear();
     this.hitSrc = new Map();
-    this.world = new World(this.scene, seed, rd, this.q, this.duel ? DUEL.stage : stageIdx(this.runSeed, rd), { duel: this.duel, arena: this.duelArena });
+    this.world = new World(this.scene, seed, rd, this.q, this.duel ? DUEL.stage : (this.forceStage ?? stageIdx(this.runSeed, rd)), { duel: this.duel, arena: this.duelArena });
     this.fx.heightAt = (x, z) => this.world.heightAt(x, z);
     const b = this.world.biome;
     this.scene.fog.color.set(b.fog);

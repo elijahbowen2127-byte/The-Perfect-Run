@@ -177,6 +177,32 @@ export const BIOMES = [
     sky: [0x020208, 0x2a0f2e], fog: 0x2a1424, fogDensity: 0.0085, sun: 0xffb08a, sunI: 1.5, hemi: [0xb080c0, 0x28101a], hemiI: 0.7,
     props: ['rock', 'voidcrystal', 'obelisk'], mobTint: 0xb07ac0,
   },
+  // Indices 8-11 (2026-11-05): the lobby backdrops turned into maps (see stages.js). `tex` names the biome whose ground textures,
+  // prop tints and splat rules they borrow; `stage` the music they share. They join the stage pool through STAGE_POOL below.
+  {
+    id: 'waterfall', name: 'Waterfall Valley', seedTex: 909, tex: 'springs', stage: 6,
+    groundCols: [[0.18, 0.36, 0.12], [0.28, 0.46, 0.16], [0.32, 0.3, 0.17]], ground: 'pebbles',
+    sky: [0x3d7fd0, 0xd8ecf2], fog: 0xcfe4e6, fogDensity: 0.0068, sun: 0xfff3d8, sunI: 2.6, hemi: [0xcfe6ff, 0x4a7a34], hemiI: 0.95,
+    props: ['pine', 'log', 'rock', 'mushroom'], mobTint: 0x7a9a6a,
+  },
+  {
+    id: 'clearing', name: 'Forest Clearing', seedTex: 1010, tex: 'forest', stage: 1,
+    groundCols: [[0.14, 0.2, 0.08], [0.24, 0.3, 0.11], [0.2, 0.15, 0.08]], ground: 'pebbles',
+    sky: [0x2f6ac8, 0xf2d29a], fog: 0xb8b29a, fogDensity: 0.0078, sun: 0xffd29a, sunI: 3.0, hemi: [0xa0b8d0, 0x3a3020], hemiI: 0.8,
+    props: ['pine', 'rock', 'log', 'mushroom'], mobTint: 0x6f8f5a,
+  },
+  {
+    id: 'volcano', name: 'The Volcano', seedTex: 1111, tex: 'volcanic', stage: 4,
+    groundCols: [[0.09, 0.07, 0.07], [0.18, 0.14, 0.12], [0.05, 0.04, 0.04]], ground: 'cracked', crackCol: [1.0, 0.32, 0.04],
+    sky: [0x050304, 0x8c2410], fog: 0x3a1410, fogDensity: 0.0072, sun: 0xff7a40, sunI: 1.6, hemi: [0x5a3048, 0x401008], hemiI: 0.6,
+    props: ['basalt', 'obsidian', 'rock', 'lavapool', 'deadtree'], mobTint: 0x8a4a3a,
+  },
+  {
+    id: 'ruins', name: 'Misty Ruins', seedTex: 1212, tex: 'meadow', stage: 0,
+    groundCols: [[0.22, 0.3, 0.14], [0.3, 0.36, 0.2], [0.3, 0.3, 0.24]], ground: 'pebbles',
+    sky: [0x6688b8, 0xeae8de], fog: 0xc4c8c2, fogDensity: 0.008, sun: 0xffe0b0, sunI: 2.2, hemi: [0xb0c0d0, 0x40402a], hemiI: 0.9,
+    props: ['pine', 'rock', 'pillar', 'log'], mobTint: 0x8a9a7a,
+  },
 ];
 
 // Base stats; scaled per round in the host sim.
@@ -241,24 +267,32 @@ export const STAGE_MOBS = {
   volcanic: ['hatchling', 'bomber', 'brute', 'cinder', 'ravager'],
   abyss: ['runner', 'assassin', 'hexer', 'witch'],
   springs: ['hatchling', 'venomfang', 'pouncer', 'spitter', 'troll'],
-  space: ['zorp', 'skree', 'gloop', 'gruk', 'lanky', 'stinger', 'brainer', 'warden'],
+  space: ['zorp', 'skree', 'gloop', 'lanky', 'stinger', 'brainer', 'warden', 'gorgle'], // Gruk out (Nutty 2026-11-05); Gorgle in (picked 2026-11-05)
+  waterfall: ['hatchling', 'venomfang', 'pouncer', 'spitter', 'troll'],
+  clearing: ['goblin', 'gobshaman', 'venomfang', 'troll', 'gobchief'],
+  volcano: ['hatchling', 'bomber', 'brute', 'cinder', 'ravager'],
+  ruins: ['grunt', 'wraith', 'archer', 'necro', 'banshee'],
 };
 // Flyers belong to the abyss alone, so no other stage repeats them.
 export const STAGE_FLY = { abyss: ['gloomwing', 'skyhunter'], space: ['wasp'] };
+// Every other stage takes its flyer in turn from this list, a different one each round (Nutty 2026-11-05: alternate all flyers, #8 included).
+export const FLYERS = ['gloomwing', 'skyhunter', 'wasp', 'surgeon'];
 // Ghoul and Stalker share the lizard-troll body and used to be most of every round: keep them rare.
 MOBS.grunt.w = 0.4; MOBS.grunt.pack = [1, 2]; MOBS.grunt.share = 0.22; MOBS.grunt.fam = 'troll';
 MOBS.runner.w = 0.5; MOBS.runner.pack = [1, 2]; MOBS.runner.share = 0.24; MOBS.runner.fam = 'troll';
 // The hidden space map's aliens, in every shape and colour. Appended last so snapshot indices stay stable (see MOB_LOOKS for their bodies).
 Object.assign(MOBS, {
   zorp: { name: 'Zorp', tier: 1, hp: 44, speed: 6.6, dmg: 7, range: 1.7, rate: 0.7, radius: 0.4, height: 1.15, scale: 0.7, color: 0x7fd070, w: 1.2, cap: 12, share: 0.3, pack: [3, 5] },
-  skree: { name: 'Skree', tier: 1, hp: 15, speed: 8.8, dmg: 4, range: 1.3, rate: 0.55, radius: 0.3, height: 0.9, scale: 0.55, color: 0x1fb8c8, w: 0.9, cap: 12, share: 0.22, cost: 0.4, pack: [4, 7], weave: true },
+  skree: { name: 'Skree', tier: 1, hp: 24, speed: 8.8, dmg: 5, range: 1.6, rate: 0.55, radius: 0.7, height: 2.9, scale: 0.55, color: 0x1fb8c8, w: 0.9, cap: 12, share: 0.22, cost: 0.4, pack: [4, 7], weave: true },
   gloop: { name: 'Gloop', tier: 1, hp: 70, speed: 4.6, dmg: 9, range: 1.9, rate: 0.9, radius: 0.55, height: 1.6, scale: 0.95, color: 0x3a8aff, w: 1.0, cap: 6 },
   gruk: { name: 'Gruk', tier: 2, hp: 280, speed: 3.9, dmg: 20, range: 2.8, rate: 1.7, radius: 1.0, height: 3.0, scale: 1.55, color: 0xe05a30, w: 0.9, cap: 3, slam: { r: 4.2, d: 1.0, dmg: 22, cd: 5.5 } },
   lanky: { name: 'Lanky Sniper', tier: 2, hp: 95, speed: 4.4, dmg: 17, range: 40, rate: 2.1, radius: 0.45, height: 2.7, scale: 1.1, ranged: true, color: 0xb070ff, w: 0.9, cap: 3, hold: [15, 26], pspd: 32, pstyle: 2 },
   stinger: { name: 'Stinger', tier: 2, hp: 90, speed: 5.4, dmg: 14, range: 24, rate: 1.5, radius: 0.5, height: 1.8, scale: 1.0, ranged: true, color: 0xe8c820, w: 0.9, cap: 3, hold: [12, 20], pspd: 22, pstyle: 1, poisonHit: { n: 4, every: 0.9, k: 0.2 } },
   brainer: { name: 'Brainer', tier: 3, hp: 130, speed: 4.2, dmg: 19, range: 30, rate: 1.5, radius: 0.5, height: 2.0, scale: 1.1, ranged: true, color: 0xff7ad0, w: 0.8, cap: 2, hold: [14, 24], pspd: 18, pstyle: 1 },
+  gorgle: { name: 'Gorgle', tier: 3, hp: 360, speed: 3.4, dmg: 22, range: 2.9, rate: 1.4, radius: 1.6, height: 4.2, scale: 1, color: 0x5fd8c8, w: 0.7, cap: 2, share: 0.12, cost: 2.4, turn: 1.2, slam: { r: 4.2, d: 1.1, dmg: 20, cd: 7 } }, // huge jelly blob with three faces (src/spacemobs.js)
   warden: { name: 'Hive Warden', tier: 3, hp: 420, speed: 3.9, dmg: 26, range: 2.7, rate: 1.5, radius: 0.8, height: 2.6, scale: 1.3, color: 0x4adbd0, w: 0.8, cap: 2, guard: 0.6, turn: 1.4, regen: 0.01, slam: { r: 4.4, d: 1.0, dmg: 24, cd: 6 } },
-  wasp: { name: 'Hive Wasp', tier: 2, fly: true, hp: 70, speed: 7.6, dmg: 13, range: 2.3, rate: 1.4, radius: 0.5, height: 1.5, scale: 1, color: 0xffa020 },
+  surgeon: { name: 'The Surgeon', tier: 2, fly: true, hp: 95, speed: 7.0, dmg: 14, range: 2.4, rate: 1.4, radius: 0.6, height: 2.6, scale: 1, color: 0x7ac8d8 }, // Nutty 2026-11-05: Mixamo #8, flies with the other flyers
+  wasp: { name: 'Hive Wasp', tier: 2, fly: true, hp: 90, speed: 7.6, dmg: 13, range: 2.6, rate: 1.4, radius: 0.8, height: 2.8, scale: 1, color: 0xffa020 },
   echo7: { name: 'Echo of Mossback', tier: 3, hp: 1300, speed: 4.4, dmg: 32, range: 3.6, rate: 1.5, radius: 1.2, height: 4.4, scale: 1, summoned: true, cost: 3, slam: { r: 5, d: 1.0, dmg: 34, cd: 5 } },
   echo8: { name: 'Echo of The Visitor', tier: 3, hp: 1800, speed: 5.6, dmg: 36, range: 3.6, rate: 1.3, radius: 1.1, height: 5.0, scale: 1, summoned: true, cost: 3, slam: { r: 5, d: 1.0, dmg: 36, cd: 4.5 } },
 });
@@ -297,6 +331,13 @@ export const BOSSES = [
   // 7: the Hot Springs Valley's boss. 8: The Visitor, the hidden space map's boss: exactly 10,000 health (flatHp) and +400 damage on every attack.
   { name: 'Mossback', hp: 3200, color: 0x4a6a2a, glow: 0x9aff6a, scale: 3.6, speed: 4.4, attacks: ['slam', 'ring', 'summon', 'charge'] },
   { name: 'The Visitor', hp: 10000, flatHp: true, dmgAdd: 400, color: 0x9aa4b0, glow: 0x7dffb0, scale: 6.5, speed: 5.4, reach: 8, rad: 3.4, attacks: ['barrage', 'ring', 'charge', 'summon', 'slam', 'barrage'] },
+  // 9-13 (Nutty 2026-11-05): the Mixamo bosses that replace the old rotating stage bosses (0-5 and 7 stay in the table for echoes).
+  { name: 'Dreadknight', hp: 4200, color: 0x2a2a34, glow: 0x9a3aff, scale: 3.6, speed: 5.0, attacks: ['charge', 'slam', 'ring', 'barrage'] },   // 9: #9 black-armoured warlord
+  { name: 'The Archmage', hp: 3800, color: 0x5a2a4a, glow: 0xff5ad0, scale: 3.4, speed: 4.6, attacks: ['barrage', 'ring', 'summon', 'slam'] }, // 10: #24 ornate mage
+  { name: 'The Flayed', hp: 4600, color: 0x8a2a2a, glow: 0xff4a3a, scale: 3.8, speed: 5.4, attacks: ['charge', 'slam', 'charge', 'ring'] },    // 11: #26 skinless horror
+  { name: 'Rotgut', hp: 3400, color: 0x4a7a3a, glow: 0x9aff4a, scale: 3.2, speed: 5.6, attacks: ['summon', 'charge', 'slam', 'barrage'] },     // 12: #28 zombie
+  { name: 'Big Elvis', hp: 5000, color: 0xe8e0d0, glow: 0xffd04a, scale: 4.0, speed: 4.2, attacks: ['slam', 'ring', 'slam', 'charge'] },       // 13: #20 the huge jumpsuit crooner
+  { name: 'Uncle Gus', hp: 4400, color: 0xd0a070, glow: 0xffa040, scale: 3.8, speed: 4.4, attacks: ['slam', 'charge', 'summon', 'ring'] },      // 14: #25 the big man in the shirt
 ];
 
 // Death arrives at the 10 minute mark of every round. She can be killed, but her health bar is 500 times a Ghoul's.
@@ -536,14 +577,19 @@ export const SEED_SPACE = 1, SEED_HARD = 2;
 export const seedFlags = (seed) => ({ space: ((seed | 0) & SEED_SPACE) !== 0, hard: ((seed | 0) & SEED_HARD) !== 0 });
 // Stages 0-5 are the original six, 6 the Hot Springs Valley, 7 the space map. Boss indices: stage s fights BOSSES[s] (6 is Fear, so the
 // springs map uses 7 and the space map 8); the last round is always Fear.
-export function bossIdx(runSeed, round) { return round >= CONFIG.rounds ? 8 : round >= CONFIG.rounds - 1 ? 6 : ((s) => (s === 6 ? 7 : s === 7 ? 8 : s))(stageIdx(runSeed, round)); }
+// Which boss each stage brings (BOSSES index per BIOMES index). The four newest maps borrow a boss until they get their own.
+export const STAGE_BOSS = [9, 11, 10, 13, 10, 5, 12, 8, 11, 14, 10, 9]; // Nutty 2026-11-05: Mixamo bosses 9-13 on every rotating stage (Thermes and The Visitor unchanged)
+// The stages a run draws from (BIOMES indices). The space map joins through the run seed's flag, never through this list.
+export const STAGE_POOL = [0, 1, 2, 3, 4, 6, 9, 11]; // The Abyss (5) dropped, Forest Clearing (9) and Misty Ruins (11) added (Nutty 2026-11-05)
+export function bossIdx(runSeed, round) { return round >= CONFIG.rounds ? 8 : round >= CONFIG.rounds - 1 ? 6 : STAGE_BOSS[stageIdx(runSeed, round)] ?? 0; }
 export function stageIdx(runSeed, round) {
   if (round >= CONFIG.rounds) return 7; // the optional bonus round after Fear is always the space map
-  const order = seedFlags(runSeed).space ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3, 4, 5, 6];
+  const order = seedFlags(runSeed).space ? [...STAGE_POOL, 7] : [...STAGE_POOL];
   let a = (runSeed | 0) >>> 0;
   const rnd = () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
   const run = order.slice(0, 6); // each run visits six of the stages
+  while (run.length < 6) run.push(run[run.length % Math.max(1, order.length)]); // a short pool repeats itself
   if (run[5] === 7) [run[5], run[0]] = [run[0], run[5]]; // the space map's boss is The Visitor, so it can never be the Fear round
   return run[((round % 6) + 6) % 6];
 }

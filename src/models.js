@@ -5,6 +5,7 @@ import { MOBS } from './data.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { iceGeo, rockMaterial } from './elements.js';
 import * as TX from './textures.js';
+import { makeSpaceMonster, SPACE_MONSTERS } from './spacemobs.js';
 
 const ni = (g) => (g.index ? g.toNonIndexed() : g);
 function merge(list) {
@@ -303,6 +304,7 @@ function cachedGeo(key, fn) { if (!mobGeoCache.has(key)) mobGeoCache.set(key, fn
 export function makeMob(kind, tint) {
   const def = MOBS[kind] || {};
   const type = def.model || kind;
+  if (SPACE_MONSTERS[type]) return makeSpaceMonster(type);
   if (def.color) tint = new THREE.Color(def.color).lerp(new THREE.Color(tint), 0.25).getHex();
   const M = def.extra === 'ghost' ? ghostMaterials(def.color || 0x9fe8ff) : mobMaterials(tint);
   const root = new THREE.Group();

@@ -223,7 +223,7 @@ function recipe(biome) {
   const gc = biome.groundCols;
   const sc = (c, k) => c.map((x) => x * k);
   const dark = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
-  switch (biome.id) {
+  switch (biome.tex || biome.id) {
     case 'graveyard': return [
       { kind: 'grass', colors: [[0.13, 0.16, 0.08], [0.24, 0.26, 0.13], [0.36, 0.32, 0.18]], scale: 6.5, rough: 0.92 },
       { kind: 'dirt', colors: [[0.17, 0.12, 0.09], [0.27, 0.2, 0.14], [0.36, 0.34, 0.3]], scale: 5, rough: 0.8 },

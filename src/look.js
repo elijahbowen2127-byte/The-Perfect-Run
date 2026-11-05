@@ -57,6 +57,10 @@ const SKY = {
   frost: { moon: 0, stars: 0, cover: 0.52, cloud: [0.8, 0.86, 0.95], cloudLit: [1.3, 1.3, 1.34], sunK: 1 },
   springs: { moon: 0, stars: 0, cover: 0.45, cloud: [0.82, 0.86, 0.9], cloudLit: [1.3, 1.26, 1.18], sunK: 1 },
   space: { moon: 0, stars: 1, cover: 0.0, cloud: [0.1, 0.04, 0.08], cloudLit: [0.5, 0.2, 0.2], sunK: 0.6 },
+  waterfall: { moon: 0, stars: 0, cover: 0.4, cloud: [0.84, 0.88, 0.92], cloudLit: [1.32, 1.28, 1.2], sunK: 1 },
+  clearing: { moon: 0, stars: 0, cover: 0.3, cloud: [0.9, 0.84, 0.74], cloudLit: [1.35, 1.2, 0.95], sunK: 1 },
+  volcano: { moon: 0, stars: 0, cover: 0.62, cloud: [0.12, 0.05, 0.04], cloudLit: [1.0, 0.32, 0.1], sunK: 0.7 },
+  ruins: { moon: 0, stars: 0, cover: 0.75, cloud: [0.78, 0.8, 0.8], cloudLit: [1.1, 1.08, 1.0], sunK: 0.8 },
 };
 
 export function skyMaterial(biome, { env = false } = {}) {
