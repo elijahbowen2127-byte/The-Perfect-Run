@@ -303,7 +303,7 @@ export class HostSim {
 
   applyRequest(from, r, players) {
     const [, kind, arg] = r;
-    if (kind === 'npc' && NPCS[arg]) {
+    if (kind === 'npc' && NPCS[arg] && NPCS[arg].summoned) { // hired helpers are gone; only Zombie Staff summons remain
       const owner = players.find((p) => p.id === from);
       const x = owner ? owner.x + 2 : this.world.spawn.x, z = owner ? owner.z + 2 : this.world.spawn.z;
       const k = NPCS[arg].summoned ? 5 : 1;

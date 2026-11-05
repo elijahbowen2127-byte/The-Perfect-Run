@@ -20,14 +20,15 @@ export const CTL = {
   kp: { move: '↑ ↓', look: 'PgUp PgDn', jump: '/', dash: "'", use: ';', reload: ';', next: '9 0', ab1: '[', ab2: 'P', ult: ']', aim: 'Shift', block: 'Shift', fire: 'Enter', sprint: 'R Shift', camera: 'R3', bed: 'B', shop: '=', pause: 'Backspace', prev: '9', nxt: '0', speed: 'N', takeover: '\\', cpu: '\\', up: '↑', down: '↓', side: '← →', select: 'Enter', back: 'Backspace', fs: 'F11' },
 };
 const isPad = (L) => L === 'ds' || L === 'xbox';
+const ctlOf = (L) => CTL[L] || CTL.ds;
 // The full "how to play" controls list for one layout.
 export function helpRows(L) {
-  const c = CTL[L] || CTL.ds, pad = isPad(L);
+  const c = ctlOf(L), pad = isPad(L);
   return [
     [c.move, 'Move'], [c.look, 'Aim'], [c.fire, 'Attack'], [c.sprint, pad ? 'Sprint (press the stick)' : 'Sprint'], [c.jump, 'Jump · double-tap: Jetpack · press again in the air and hold: Web Swing'], [c.dash, 'Dash'],
     [c.ab1 + ' · ' + c.ab2, 'Element abilities'], [c.ult, 'Ultimate'], [c.aim, 'Aim down sights, or block with a shield'],
     pad ? [c.prev + ' ' + c.nxt, 'Swap weapon'] : ['1 2 3 / ' + c.next, 'Swap weapon'], [c.reload, 'Reload'], [c.use, 'Open crate · ride the skateboard · use the altar (hold)'], [c.bed, 'Place bed'],
-    [c.shop, 'Shop'], [c.camera, 'First / third person'], [c.speed, 'Game speed (solo and couch)'], [c.cpu, 'Let the CPU play, and the same again to take the controls back'], [c.pause, 'Menu'],
+    [c.shop, 'Shop'], [c.camera, 'First / third person'], [c.speed, 'Game speed (solo and couch)'], ...([[c.cpu, 'CPU Run: hand the run to the CPU, and the same again to take it back']]), [c.pause, 'Menu'],
   ];
 }
 // What each keyboard key is called on the other devices (HUD badges and the class card).
@@ -427,7 +428,7 @@ export class UI {
       if (loadoutFull(w) && g.pad.active) setFocus(this.root, this.$('#btn-ready'));
     }));
     this.$('#game-mode').onchange = (e) => { g.audio.play('ui'); g.setDuelMode(e.target.value === 'duel'); this.renderLobby(); };
-    this.$('#cpu-play').onchange = (e) => { g.audio.play('ui'); g.autoplay = e.target.checked; };
+    this.$('#cpu-play').onchange = (e) => { g.audio.play('ui'); g.autoplay = e.target.checked; this.refreshHints(); };
     this.$('#cpu-play').checked = !!g.autoplay;
     this.$('#round-len').onchange = (e) => g.setRoundLen(+e.target.value);
     this.$('#difficulty').onchange = (e) => { g.audio.play('ui'); g.setHard(e.target.value === 'hard'); };
@@ -935,7 +936,7 @@ export class UI {
     if (!open || !p) return;
     this.$('#shop-pc').textContent = p.pc;
     const items = [{ id: 'bed', name: 'Bed', role: 'Respawn', cost: g.price(CONFIG.bedPrice), desc: 'One more respawn. Place it with B.' }]
-      .concat(NPC_TYPES.filter((t) => !NPCS[t].summoned).map((t) => ({ id: t, ...NPCS[t], cost: g.price(NPCS[t].cost) })));
+      ;
     this.$('#shop-items').innerHTML = items.map((it) => `
       <button class="shop-item ${p.pc < it.cost ? 'poor' : ''} role-${it.role.toLowerCase()}" data-buy="${it.id}">
         <div class="si-role">${it.role}</div>
@@ -1060,13 +1061,15 @@ export class UI {
   }
 
   // ---------------- feedback ----------------
-  toast(msg, kind = '') {
+  toast(msg, kind = '', key = '') {
+    if (key) { const old = this.$('#toasts [data-k="' + key + '"]'); if (old) { clearTimeout(old._t1); clearTimeout(old._t2); old.remove(); } }
     const t = document.createElement('div');
+    if (key) t.dataset.k = key;
     t.className = 'toast ' + kind;
     t.textContent = msg;
     this.$('#toasts').appendChild(t);
-    setTimeout(() => t.classList.add('out'), 2600);
-    setTimeout(() => t.remove(), 3200);
+    t._t1 = setTimeout(() => t.classList.add('out'), 2600);
+    t._t2 = setTimeout(() => t.remove(), 3200);
     while (this.$('#toasts').children.length > 4) this.$('#toasts').firstChild.remove();
   }
 
@@ -1117,12 +1120,12 @@ export class UI {
   // Which CTL column this seat reads: player 2's keyboard half, else Settings > Controller layout.
   layout() { const g = this.game; return g.padKind && g.padKind() === 'kb' ? 'kp' : (g.settings.layout || 'ds'); }
   // The button for an action ('jump', 'use', 'shop', 'takeover', …) on the current layout, for prompts and toasts.
-  ctl(action) { const c = CTL[this.layout()] || CTL.ds; return c[action] || action; }
+  ctl(action) { const c = ctlOf(this.layout()); return c[action] || action; }
   // Same, wrapped as a <b> for ui.prompt() html.
   ctlB(action) { return '<b>' + esc(this.ctl(action)) + '</b>'; }
   // Every static line of button text in the menus and HUD, rebuilt for the current layout.
   refreshHints() {
-    const L = this.layout(), c = CTL[L] || CTL.ds, k = (a) => '<kbd>' + esc(c[a]) + '</kbd>';
+    const L = this.layout(), c = ctlOf(L), k = (a) => '<kbd>' + esc(c[a]) + '</kbd>';
     const help = this.$('#s-help ul.keys');
     if (help) help.innerHTML = helpRows(L).map(([a, b]) => `<li><kbd>${esc(a)}</kbd> ${esc(b)}</li>`).join('');
     const tip = this.$('.couch-tip');

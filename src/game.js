@@ -769,8 +769,8 @@ export class Game {
     const ev = this.pad.apply(this.input, dt, this.now);
     if (!ev) return;
     if (this.pad.active !== wasActive) { this.ui.setLocked(this.inputLive(), false); this.ui.padHints(); }
-    // D-pad up toggles who plays: hands the run to the CPU, or takes it back (inside the element picker it confirms instead).
-    if (ev.du && !this.elemOpen) { if (this.brain && this.brain.mode === 'run') this.takeOver(); else if (!this.brain) this.giveToCpu(); return; }
+    // With the lobby's CPU Run box checked, D-pad up toggles who plays: hands the run to the CPU, or takes it back. Unchecked it does nothing.
+    if (ev.du && this.autoplay && !this.elemOpen) { if (this.brain && this.brain.mode === 'run') this.takeOver(); else if (!this.brain) this.giveToCpu(); return; }
     if (this.elemOpen && !this.elemStops()) {
       // Online the run carries on, so the D-pad doubles as the picker: left/right choose, up confirms.
       const I = this.input;
@@ -779,7 +779,7 @@ export class Game {
       if (ev.du) this.pickElem(this.elemSel);
     }
     if (ev.dd) this.cycleSpeed();
-    // D-pad left / right: previous / next weapon, round all three slots (Y also goes to the next). In the vote and
+    // D-pad left / right: previous / next weapon, round all three slots. In the vote and
     // the element picker those same presses stay the 1 / 2 choices, so only turn them into a cycle outside those.
     if ((ev.dl || ev.dr) && !this.elemOpen && this.phase !== 'vote') { const I = this.input; I.pressed.delete('Digit1'); I.pressed.delete('Digit2'); I.wheel = ev.dr ? 1 : -1; }
     if (ev.shop) this.toggleShop();
@@ -1329,6 +1329,7 @@ export class Game {
   }
   // Hand the controls (back) to the CPU mid-run. Solo runs only. Nothing a CPU-played run does counts toward the Unlockables.
   giveToCpu() {
+    if (!this.autoplay) return; // only when the lobby's "CPU Run" box is checked
     if (this.brain || this.mode !== 'game' || this.duel || !this.party || this.party.kind !== 'solo' || !this.player || !this.player.alive) return;
     this.brain = new Bot(this, 'run');
     this.runStats.cpuUsed = true;
@@ -2044,11 +2045,11 @@ export class Game {
   cycleSpeed() {
     const k = this.party && this.party.kind;
     if (this.mode !== 'game') return;
-    if (k !== 'solo' && k !== 'local') { this.ui.toast('Speed-up is only for solo and couch co-op', 'bad'); return; }
-    if (!speedUnlocked()) { this.ui.toast('Game speed is locked: finish 4 runs to earn it (see Unlockables)', 'bad'); this.audio.play('deny'); return; }
+    if (k !== 'solo' && k !== 'local') { this.ui.toast('Speed-up is only for solo and couch co-op', 'bad', 'speed'); return; }
+    if (!speedUnlocked()) { this.ui.toast('Game speed is locked: win 4 runs to earn it (see Unlockables)', 'bad', 'speed'); this.audio.play('deny'); return; }
     SPEED.n = SPEED.n >= 3 ? 1 : SPEED.n + 1;
     this.audio.play('ui');
-    this.ui.toast(SPEED.n === 1 ? 'Normal speed' : 'Game speed ' + SPEED.n + 'x');
+    this.ui.toast(SPEED.n === 1 ? 'Normal speed' : 'Game speed ' + SPEED.n + 'x', '', 'speed');
   }
 
   // ---------------- elemental level-up ----------------
