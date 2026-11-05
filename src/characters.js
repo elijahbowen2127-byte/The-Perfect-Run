@@ -14,6 +14,7 @@ import { buildChad } from './chad.js';
 import { buildQuill, animateSpark } from './quill.js';
 import { SKINS, skinOf, DEFAULT_SKIN } from './skins.js';
 import { makeWeapon } from './weapons.js';
+import { findEyepiece, eyeRelief, CAM_LEAD } from './scope.js';
 import { buildReaper, makeReaperScythe } from './reaper.js';
 import { buildKnight } from './knight.js';
 import { buildNinja } from './ninja.js';
@@ -412,8 +413,9 @@ export class CharacterRig {
         const fp = this.firstPerson, K = this.k;
         const headP = fp ? this.eyeWorld() : B.get('Head').getWorldPosition(new THREE.Vector3());
         const bobY = moving ? Math.sin(this.t * (st.sprint ? 13 : 9)) * (st.sprint ? 0.012 : 0.005) : 0;
-        const reach = fp ? V(0.11, -0.19 + bobY, 0.62).multiplyScalar(K) : V(-0.03, -0.07, 0.6).multiplyScalar(h);
-        gq = aimQ.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 0, 1), fp ? -0.3 : -0.05)); // a slight cant, like a real archer
+        // First person (Nutty 2026-11-05): hands swapped, the bow in the right hand out to the right, the left hand draws.
+        const reach = fp ? V(-0.11, -0.19 + bobY, 0.62).multiplyScalar(K) : V(-0.03, -0.07, 0.6).multiplyScalar(h);
+        gq = aimQ.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 0, 1), fp ? 0.3 : -0.05)); // a slight cant, like a real archer
         const grip = headP.clone().add(reach.applyQuaternion(aimQ));
         gp = grip.clone().sub(wd.support.clone().applyQuaternion(gq));
       } else if (this.firstPerson) {
@@ -430,7 +432,10 @@ export class CharacterRig {
           const ads = st.ads || 0;
           if (ads > 0.001 && !wd.fist && !wd.shoulder && wd.muzzle) {
             const e = ads * ads * (3 - 2 * ads), mz = wd.muzzle;
-            const sight = V(-mz.x, -(mz.y + (st.adsUp ?? 0.075)), (st.adsBack ?? 0.78) + 0.16 - mz.z); // +0.16: eye relief behind the rear sight
+            if (st.scope && wd.eyepiece === undefined) wd.eyepiece = findEyepiece(wpn);
+            const ep = st.scope ? wd.eyepiece : null;
+            // A scope: the eye goes to its eye relief behind the ocular lens. Open sights: behind the rear sight.
+            const sight = ep ? V(-ep.p.x, -ep.p.y, eyeRelief(ep) + CAM_LEAD - ep.p.z) : V(-mz.x, -(mz.y + (st.adsUp ?? 0.075)), (st.adsBack ?? 0.78) + 0.16 - mz.z);
             off.lerp(sight, e);
           }
           if (st.recoil) { off.z -= (wd.shoulder ? 0.02 : 0.05) * st.recoil; off.y += 0.012 * st.recoil; }
@@ -566,8 +571,10 @@ export class CharacterRig {
       // Right hand to the grip. Hand frames in weapon space.
       const wq = gq;
       const gripF = isGun ? V(0, -0.35, 1) : V(0, 1, 0); // knuckles direction
-      const gripP = V(1, 0, 0); // palm faces the weapon's left side
-      this.grab('Right', gp, gripF.normalize().applyQuaternion(wq), gripP.applyQuaternion(wq), 1.0, right, h);
+      // A bow in first person is held mirrored: the right hand on the grip, the left on the string.
+      const swap = !!(wd.bow && this.firstPerson), mir = swap ? -1 : 1, gripH = swap ? 'Left' : 'Right', supH = swap ? 'Right' : 'Left';
+      const gripP = V(mir, 0, 0); // palm faces the weapon's left side
+      this.grab(gripH, gp, gripF.normalize().applyQuaternion(wq), gripP.applyQuaternion(wq), 1.0, swap ? right.clone().negate() : right, h);
       // Left hand: support point or free. With a shield: held at the side, or raised square in front of the chest to block.
       const supP = wd.cane ? (melee > 0 ? V(0, 0, 0.34) : null) : wd.support;
       if (wd.shield) {
@@ -578,11 +585,11 @@ export class CharacterRig {
       } else if (supP) {
         const sp = supP.clone().applyMatrix4(wpn.matrixWorld);
         let f, p;
-        if (wd.bow) { f = V(-0.25, 0.05, 1).normalize(); p = V(-1, 0, -0.15).normalize(); } // fist round the riser, arm straight at the target
+        if (wd.bow) { f = V(-0.25 * mir, 0.05, 1).normalize(); p = V(-mir, 0, -0.15).normalize(); } // fist round the riser, arm straight at the target
         else if (isGun && wd.pistol) { f = V(0.3, -0.5, 1).normalize(); p = V(-1, 0.3, 0).normalize(); }
         else if (isGun) { f = V(-0.45, 0.1, 1).normalize(); p = V(0, 1, 0); }
         else { f = V(0, -1, 0); p = V(1, 0, 0); }
-        this.grab('Left', sp, f.applyQuaternion(wq), p.applyQuaternion(wq), 0.9, right.clone().negate(), h);
+        this.grab(supH, sp, f.applyQuaternion(wq), p.applyQuaternion(wq), 0.9, swap ? right : right.clone().negate(), h);
       } else if (isGun && wd.pistol) {
         // Cup the pistol grip from below.
         const sp = V(0.02, -0.07, -0.01).applyMatrix4(wpn.matrixWorld);

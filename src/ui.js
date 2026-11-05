@@ -810,7 +810,7 @@ export class UI {
     { const wk = p.board ? Math.round((p.windK || 0) * 20) / 20 : 0, we = this.$k('#wind'); if (we && we._k !== wk) { we._k = wk; we.style.opacity = wk * 0.85; } }
     const chc = (wp.kind === 'melee' ? 'melee' : '') + (adsF > 0.5 ? ' ads' : ''), ch = this.$k('#crosshair');
     if (ch._k !== chc) { ch._k = chc; ch.className = chc; }
-    const so = String(fpv && scopedW ? Math.round(Math.max(0, (adsF - 0.7) / 0.3) * 100) / 100 : 0), sc = this.$k('#scope');
+    const so = '0', sc = this.$k('#scope'); // the black scope overlay is gone: scoped guns show a real scope picture (scope.js)
     if (sc._o !== so) { sc._o = so; sc.style.opacity = so; }
     // Throttled text.
     this.lastHud -= dt;

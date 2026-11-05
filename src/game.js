@@ -17,6 +17,7 @@ import { SoloParty, RoomParty, RoomLobby, BCParty, BCLobby, PeerParty, getRoom, 
 import { Audio } from './audio.js';
 import { MenuScene } from './menu.js';
 import { setWeaponEnv, boltProto } from './weapons.js';
+import { ScopeView, CAM_LEAD } from './scope.js';
 import { launchArrow, longbowPick } from './longbow.js';
 import { Governor } from './perf.js';
 import { CHAR_BY_ID, CHARACTERS } from './characters.js';
@@ -632,6 +633,7 @@ export class Game {
   render(scene, camera) {
     if (this.headless) return;
     if (this.gov) this.gov.beforeRender();
+    if (this.scope && this.scope.on && scene === this.scene) this.scope.render([this.player.model]);
     if (this.composer) {
       this.renderPass.scene = scene;
       this.renderPass.camera = camera;
@@ -1721,23 +1723,29 @@ export class Game {
     const ads = p.alive && !p.out ? p.ads : 0;
     const wpn = p.weapon;
     // Aim down sights always looks through the sights, even from the third-person view (Call of Duty style).
-    const sights = ads > 0.4 && wpn.kind === 'gun' && !wpn.eyes;
-    const fp = (this.settings.view === 'first' || sights) && !p.out && p.alive && rig;
+    // Nutty (2026-11-05): aiming no longer flips a third-person player into first person; third person just zooms in.
+    const fp = this.settings.view === 'first' && !p.out && p.alive && rig;
     this.fpNow = !!fp;
     if (rig) rig.firstPerson = !!fp;
     // Aim down sights: zoom in (scoped weapons a lot), and in first person line the eye up behind the gun.
     const scoped = wpn.id === 'dmr' || wpn.id === 'sniper' || wpn.id === 'lever';
     const base = Math.max(55, Math.min(105, this.settings.fov || 70));
-    const fovT = base - (base - (fp ? (scoped ? 30 : 52) : 58 * base / 70)) * ads + (p.board ? (p.windK || 0) * 9 : 0); // sprinting on a board widens the view
+    const fovT = base - (base - (fp ? (scoped ? 30 : 52) : 50 * base / 70)) * ads + (p.board ? (p.windK || 0) * 9 : 0); // sprinting on a board widens the view
     if (Math.abs(this.camera.fov - fovT) > 0.05) { this.camera.fov = fovT; this.camera.updateProjectionMatrix(); }
     if (fp) {
       // First person: eyes in the character's own head, which is hidden from view.
       const eye = rig.eyeWorld();
       const cam = this.camera;
-      cam.position.copy(eye).add(new THREE.Vector3(dx * 0.06, 0, dz * 0.06));
+      cam.position.copy(eye).add(new THREE.Vector3(dx * CAM_LEAD, 0, dz * CAM_LEAD));
       // Looking through a scope: the weapon model would only block the view.
       const wm = p.model.userData.weapon;
-      if (wm) { wm.visible = true; this.ghostSights(wm, scoped || wpn.adsHide ? ads : 0); } // iron sights and red dots stay solid: you look down them // looking down the sights: whatever of the gun is near the line of sight turns see-through
+      if (wm) { wm.visible = true; this.ghostSights(wm, wpn.adsHide ? ads : 0); } // sights, red dots and scopes stay solid: you look through them
+      // A scoped weapon: the ocular shows the magnified picture (scope.js) once the eye is nearly behind it.
+      if (wpn.scope && wm) {
+        if (!this.scope) this.scope = new ScopeView(this.renderer, this.scene, this.q);
+        this.scope.attach(wm);
+        this.scope.set(ads > 0.55, eye, new THREE.Vector3(dx, dy, dz), wpn.scopeFov || 10);
+      } else if (this.scope && this.scope.on) this.scope.set(false);
       // Aiming down the sights no longer moves the camera to the gun (it ended up inside the body); the rig brings the
       // gun up to the eye instead (characters.js, st.ads), so this works for every character, present and future.
       cam.lookAt(cam.position.x + dx * 30, cam.position.y + dy * 30, cam.position.z + dz * 30);
@@ -1749,11 +1757,12 @@ export class Game {
       return;
     }
     if (this.camera.near !== 0.1) { this.camera.near = 0.1; this.camera.updateProjectionMatrix(); }
+    if (this.scope && this.scope.on) this.scope.set(false);
     { const wm = p.model.userData.weapon; if (wm) { wm.visible = true; this.ghostSights(wm, 0); } } // out of the sights the gun is solid again
     // Up in a tree the foliage closes in, so the camera tucks in close.
     const high = p.climb || (p.onGround && p.pos.y - this.world.heightAt(p.pos.x, p.pos.z) > 2.5);
     const S = this.duel ? DUEL.size : 1; // a duel-sized fighter gets the camera pulled back in proportion
-    const back = (4.4 - 2.2 * Math.max(ads, p.aimIn || 0)) * (high ? 0.45 : 1) * S;
+    const back = (4.4 - 3.0 * Math.max(ads, p.aimIn || 0)) * (high ? 0.45 : 1) * S; // aiming: closer over the shoulder
     const rx = -Math.cos(yaw) * S, rz = Math.sin(yaw) * S;
     const pivot = new THREE.Vector3(px, py + 1.65 * S, pz); // chest height, even on a duel-sized fighter
     let dist = back;

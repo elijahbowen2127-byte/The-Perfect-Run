@@ -498,10 +498,10 @@ export class Elements {
         for (let i = 0; i < N; i++) {
           const a = at(i / N, k), b = at((i + 1) / N, k);
           if (core) {
-            fx.bolt(a, b, { width: 1.7, dur: 3.3, color: 0x3a5cff, branches: 0, jag: 0.02 });
-            fx.bolt(a, b, { width: 0.8, dur: 3.24, color: 0xb9d4ff, branches: 0, jag: 0.03 });
-            fx.bolt(a, b, { width: 0.35, dur: 3.2, color: 0xffffff, branches: 0, jag: 0.03 });
-          } else fx.bolt(a, b, { width: 0.7, dur: 3.26, color: 0xa8c4ff, branches: 1, jag: 0.07 });
+            fx.bolt(a, b, { width: 1.7, dur: 4.0, color: 0x3a5cff, branches: 0, jag: 0.02 });
+            fx.bolt(a, b, { width: 0.8, dur: 3.95, color: 0xb9d4ff, branches: 0, jag: 0.03 });
+            fx.bolt(a, b, { width: 0.35, dur: 3.9, color: 0xffffff, branches: 0, jag: 0.03 });
+          } else fx.bolt(a, b, { width: 0.7, dur: 3.97, color: 0xa8c4ff, branches: 1, jag: 0.07 });
         }
       }
       // the focal point: everything snaps together here

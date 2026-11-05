@@ -308,7 +308,7 @@ export class LocalPlayer {
       speed: this.board ? 0 : this.speedNow, pitch: this.pitch, gun: wp.kind === 'gun', reload: this.reloadT > 0,
       weapon: true, melee: this.meleeT > 0 ? 1 - this.meleeT / Math.max(0.2, wp.rate / this.stats.rate) : 0,
       cast: this.castT, dead: !this.alive, sprint: this.sprinting && this.recoilT === 0 && this.meleeT <= 0, recoil: this.recoilT, arc: wp.kind === 'melee' ? Math.min(360, wp.arc * this.stats.reach) : wp.arc,
-      block: !!this.blocking, swing: this.swing ? this.swing.a : null, ads: this.ads || 0, adsUp: wp.adsUp ?? 0.075, adsBack: wp.adsBack ?? (['dmr', 'sniper', 'lever'].includes(wp.id) ? 0.95 : 0.78), eyes: !!wp.eyes && this.alive, eyeGlow: this.eyeGlow || 0.45,
+      block: !!this.blocking, swing: this.swing ? this.swing.a : null, ads: this.ads || 0, adsUp: wp.adsUp ?? 0.075, adsBack: wp.adsBack ?? 0.78, scope: !!wp.scope, eyes: !!wp.eyes && this.alive, eyeGlow: this.eyeGlow || 0.45,
     }, dt, this.time);
     flushSwipes(m, this.game.fx);
     // The web line, from the hand the rig just posed up to the anchor.
@@ -1197,27 +1197,37 @@ export class LocalPlayer {
   // Chain Lightning: one tight bolt along the crosshair, 260 m long, that goes straight through everything on its line
   // (enemies, rocks, trees; nothing stops it) and strikes every enemy it touches, with a short arc between each.
   ab_chain() {
+    // Nutty (2026-11-05): the braid stays up for 4 s and everything inside it, along its whole length and width, gets
+    // the full bolt when it fires and again every half second while it is still on screen.
     const g = this.game;
-    const RANGE = 260, LANE = 1.1; // lane: how far from the line a body can be and still be struck
+    const RANGE = 260, LIFE = 4, EVERY = 0.5;
     const o = this.muzzleWorld(), ao = g.aim.origin, ad = g.aim.dir;
-    const hits = [];
-    for (const t of g.targets()) {
-      if (t.kind === 'demon') continue;
-      tmp2.set(t.x, t.y + t.h * 0.6, t.z).sub(ao);
-      const along = tmp2.dot(ad);
-      if (along < 0 || along > RANGE) continue;
-      const off = tmp2.addScaledVector(ad, -along).length(); // distance from the line
-      if (off < t.r + LANE) hits.push({ t, along });
-    }
-    hits.sort((u, v) => u.along - v.along);
-    const end = [ao.x + ad.x * RANGE, ao.y + ad.y * RANGE, ao.z + ad.z * RANGE];
-    const pts = [[o.x, o.y, o.z]];
+    const O = o.clone(), E = new THREE.Vector3(ao.x + ad.x * RANGE, ao.y + ad.y * RANGE, ao.z + ad.z * RANGE);
+    const D = E.clone().sub(O), L = D.length(); D.divideScalar(L);
     const dmg = 75 * this.stats.dmg * this.mm('chain');
-    hits.forEach(({ t }, i) => { // every one it touches takes the full bolt (only the first 24 get a drawn arc, to keep the effect message small)
-      if (i < 24) pts.push([t.x, t.y + t.h * 0.6, t.z]);
-      g.damage(t, dmg, { slow: 1 });
-    });
-    pts.push(end);
+    const P = new THREE.Vector3();
+    // The braid's strands swing out up to ~4.5 m from its axis in the middle (elements.js chain), so the hit lane follows them.
+    const lane = (f) => 1.4 + 4.0 * Math.sin(Math.PI * Math.sqrt(Math.max(0, Math.min(1, f))));
+    const inside = () => {
+      const out = [];
+      for (const t of g.targets()) {
+        if (t.kind === 'demon') continue;
+        let best = Infinity, fBest = 0;
+        for (const k of [0.15, 0.5, 0.85]) { // test the body at three heights
+          P.set(t.x, t.y + t.h * k, t.z).sub(O);
+          const along = P.dot(D);
+          if (along < 0 || along > L) continue;
+          const off = P.addScaledVector(D, -along).length();
+          if (off < best) { best = off; fBest = along / L; }
+        }
+        if (best < t.r + lane(fBest)) out.push({ t, along: fBest });
+      }
+      return out.sort((u, v) => u.along - v.along);
+    };
+    const hits = inside();
+    const pts = [[O.x, O.y, O.z]];
+    hits.forEach(({ t }, i) => { if (i < 24) pts.push([t.x, t.y + t.h * 0.6, t.z]); g.damage(t, dmg, { slow: 1 }); });
+    pts.push([E.x, E.y, E.z]);
     g.el.chain(pts);
     g.audio.play('zap');
     g.emitFx(['sq', ...pts.flat().map(q10)]);
@@ -1235,6 +1245,21 @@ export class LocalPlayer {
         if (arcs++ < 20) g.emitFx(['sq', ...arc.flat().map(q10)]);
       }
     }
+    // While it is up: anything inside takes the full bolt again every half second, with a small arc where it touches.
+    let next = EVERY;
+    g.fx.add({
+      dur: LIFE,
+      update: (dt, t) => {
+        if (t < next || t > LIFE - 0.05) return;
+        next += EVERY;
+        for (const { t: u } of inside()) {
+          g.damage(u, dmg, { slow: 1 });
+          const c = [u.x, u.y + u.h * 0.6, u.z];
+          g.fx.spark.emit({ p: c, v: [0, 4, 0], life: 0.3, s0: 0.3, s1: 0.05, c0: [0.85, 0.92, 1, 1], c1: [0.4, 0.5, 1, 0], g: 8 });
+          g.fx.glow.emit({ p: c, life: 0.25, s0: 2.5, s1: 4, c0: [0.6, 0.75, 1, 0.9], c1: [0.3, 0.4, 1, 0] });
+        }
+      },
+    });
   }
 
   ab_storm() {
