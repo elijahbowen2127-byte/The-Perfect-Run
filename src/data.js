@@ -272,17 +272,14 @@ for (const m of Object.values(MOBS)) {
   m.dmg = Math.round(m.dmg * 0.9 * 10) / 10;
   m.speed = Math.round(m.speed * 0.9 * 100) / 100;
 }
-// Nutty (2026-11-05): no more tiny mobs. Regular mobs already stand ~1.5x a player (MOB_SIZE * MOB_TALL); the two that
-// still came out shorter than 90% of a player (Skree 1.35 m, Hatchling 1.42 m) now stand within 10% of one (player ~1.8 m).
-// SMALL_TO is the new standing height in metres (mobrig.js MOB_LOOKS uses it too); SMALL_FROM their look's base height.
-export const SMALL_TO = { skree: 1.66, hatchling: 1.72 };
-const SMALL_FROM = { skree: 0.9, hatchling: 0.95 };
-for (const [id, to] of Object.entries(SMALL_TO)) {
-  const m = MOBS[id], f = to / (SMALL_FROM[id] * MOB_SIZE * MOB_TALL);
-  if (m) { m.scale *= f; m.height *= f; m.radius *= Math.min(f, 1.3); }
-}
+// Nutty (2026-11-05): no short mobs. mobrig.js lifts every regular mob shorter than MOB_MIN_H (metres, standing) up to
+// it and grows its hit size here in MOBS to match (see the floor loop there).
+export const MOB_MIN_H = 2.3;
 // ...and the ones that outran a walking player (Stalker, Gloomwing, Ravager, Shadow Blade, Skree, Hive Wasp) move 30% slower.
 for (const id of ['runner', 'gloomwing', 'ravager', 'assassin', 'skree', 'wasp']) if (MOBS[id]) MOBS[id].speed = Math.round(MOBS[id].speed * 0.7 * 100) / 100;
+// ...and no fast ones: no regular mob moves faster than MOB_MAX_SPEED (a walking player does 6.27). Leaps and charges still burst.
+export const MOB_MAX_SPEED = 5.0;
+for (const [id, m] of Object.entries(MOBS)) if (!id.startsWith('echo')) m.speed = Math.min(m.speed, MOB_MAX_SPEED);
 export const MOB_TYPES = Object.keys(MOBS);
 
 // Boss health is multiplied by BOSS_HP and grows BOSS_GROW per round on top (see HostSim.spawnBoss); their hits use dmgScale.

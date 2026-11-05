@@ -4,7 +4,7 @@
 // claw swipes, casting, hit flinches and a falling death.
 import * as THREE from 'three';
 import { lodSet, lodLevel } from './lod.js';
-import { SMALL_TO } from './data.js';
+import { MOBS, MOB_MIN_H } from './data.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { getTemplate, bonesOf } from './characters.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -88,7 +88,13 @@ for (const [k, l] of Object.entries(MOB_LOOKS)) {
 // Fear's echoes: the beaten bosses, back at roughly twice a mob's height.
 for (const i of [0, 1, 2, 3, 4, 5, 7, 8]) { const b = MOB_LOOKS['boss' + i]; if (b) MOB_LOOKS['echo' + i] = { ...b, h: (b.h || 8) * 0.5 }; }
 // Thermes: the shirtless demonic viking deity (src/thermes.js), purple pulsing skin, blue aura, laser eyes.
-for (const [id, h] of Object.entries(SMALL_TO)) if (MOB_LOOKS[id]) MOB_LOOKS[id].h = h; // no tiny mobs (data.js SMALL_TO)
+// No short mobs (Nutty 2026-11-05): every regular mob stands at least MOB_MIN_H, and its hit size grows with it.
+for (const [k, l] of Object.entries(MOB_LOOKS)) {
+  if (k.startsWith('boss') || k.startsWith('echo') || !(l.h < MOB_MIN_H)) continue;
+  const f = MOB_MIN_H / l.h;
+  l.h = MOB_MIN_H; if (l.float) l.float *= f;
+  const m = MOBS[k]; if (m) { m.scale *= f; m.height *= f; m.radius *= Math.min(f, 1.35); }
+}
 MOB_LOOKS.boss6 = { file: 'veteran.glb', tposeArms: true, build: 'thermes', h: 22, hunch: 0.1, bulk: 1.3, slam: true };
 
 const V = (...a) => new THREE.Vector3(...a);
