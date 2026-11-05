@@ -9,14 +9,14 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { FX } from './fx.js';
 import { Elements } from './elements.js';
 import { World } from './world.js';
-import { LocalPlayer } from './player.js';
+import { LocalPlayer, flashSize } from './player.js';
 import { HostSim, THERMES } from './sim.js';
 import { RemotePlayerView, MobView, BossView, DemonView, NpcView } from './views.js';
 import { CONFIG, CLASSES, CLASS_BY_ID, WEAPONS, WEAPON_BY_ID, BIOMES, BOSSES, NPCS, BLESSINGS, POWERUPS, ELEMENTS, CRATE_POOL, DUEL, DUEL_BIOMES, GRAV, HEAL, DUEL_PICKS, puInfo, levelOffer, rerollOffer, XP, MOB_TYPES, MOBS, stageIdx, bossIdx, seedFlags, MINI, ELITE, TIER, loadoutFull } from './data.js';
 import { SoloParty, RoomParty, RoomLobby, BCParty, BCLobby, PeerParty, getRoom, makeCode } from './net.js';
 import { Audio } from './audio.js';
 import { MenuScene } from './menu.js';
-import { setWeaponEnv } from './weapons.js';
+import { setWeaponEnv, boltProto } from './weapons.js';
 import { launchArrow, longbowPick } from './longbow.js';
 import { Governor } from './perf.js';
 import { CHAR_BY_ID, CHARACTERS } from './characters.js';
@@ -1375,16 +1375,16 @@ export class Game {
     switch (kind) {
       case 'shot': {
         const wp = WEAPON_BY_ID[a[6]] || {};
-        if (wp.bow) {
-          // Longbow: a real arrow flies from the teammate's bow (no damage from this copy).
-          const o = P(0), e = P(3); launchArrow(this, o, [e[0] - o[0], e[1] - o[1], e[2] - o[2]], { speed: wp.speed || 60, style: longbowPick() });
+        if (wp.bow || wp.bolt) {
+          // Longbow / crossbow: a real arrow or bolt flies from the teammate's bow (no damage from this copy).
+          const o = P(0), e = P(3); launchArrow(this, o, [e[0] - o[0], e[1] - o[1], e[2] - o[2]], wp.bolt ? { speed: wp.boltSpeed || 95, proto: boltProto() } : { speed: wp.speed || 60, style: longbowPick() });
         } else if (wp.eyes) {
           // Laser Vision: twin beams from that player's eyes (one event stands for a pair of pulses).
           const rig = v.model.userData.rig;
           this.fx.laserBeams(rig ? rig.eyesWorld() : [P(0), P(0)], P(3), 'r' + v.id, false, 0.2);
           if (Math.random() < 0.5) this.fx.laserHit(P(3));
         } else if (wp.energy) { this.fx.shotFx(wp, P(0), P(3), 'r' + v.id, false, 0.2); this.fx.pulseMuzzle(P(0)); }
-        else { this.fx.tracer(P(0), P(3), wp.tracer, wp.beamLen); if (!wp.quiet) this.fx.muzzle(P(0), [0, 0, 0]); }
+        else { this.fx.tracer(P(0), P(3), wp.tracer, wp.beamLen); if (!wp.quiet) { const o = P(0), e = P(3); this.fx.muzzle(o, [e[0] - o[0], e[1] - o[1], e[2] - o[2]], undefined, flashSize(wp.id)); } }
         this.audio.play('shot_' + a[6], vol * (wp.quiet ? 0.5 : 0.7));
         break;
       }
@@ -1737,12 +1737,9 @@ export class Game {
       cam.position.copy(eye).add(new THREE.Vector3(dx * 0.06, 0, dz * 0.06));
       // Looking through a scope: the weapon model would only block the view.
       const wm = p.model.userData.weapon;
-      if (wm) { wm.visible = true; this.ghostSights(wm, ads); } // looking down the sights: whatever of the gun is near the line of sight turns see-through
-      if (ads > 0.01 && wpn.kind === 'gun') {
-        const mz = p.muzzleWorld(), back = wpn.adsBack ?? (scoped ? 0.95 : 0.78), e = ads * ads * (3 - 2 * ads);
-        const tx = mz.x - dx * back, ty = mz.y - dy * back + (wpn.adsUp ?? 0.075), tz = mz.z - dz * back;
-        cam.position.x += (tx - cam.position.x) * e; cam.position.y += (ty - cam.position.y) * e; cam.position.z += (tz - cam.position.z) * e;
-      }
+      if (wm) { wm.visible = true; this.ghostSights(wm, scoped || wpn.adsHide ? ads : 0); } // iron sights and red dots stay solid: you look down them // looking down the sights: whatever of the gun is near the line of sight turns see-through
+      // Aiming down the sights no longer moves the camera to the gun (it ended up inside the body); the rig brings the
+      // gun up to the eye instead (characters.js, st.ads), so this works for every character, present and future.
       cam.lookAt(cam.position.x + dx * 30, cam.position.y + dy * 30, cam.position.z + dz * 30);
       if (cam.near !== 0.04) { cam.near = 0.04; cam.updateProjectionMatrix(); }
       if (this.shakeAmt > 0) { const s = this.shakeAmt * 0.06; cam.position.x += (Math.random() - 0.5) * s; cam.position.y += (Math.random() - 0.5) * s; this.shakeAmt = Math.max(0, this.shakeAmt - dt * 2.5); }

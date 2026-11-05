@@ -1,6 +1,7 @@
 // Low-level effect primitives: GPU point particles, pooled flash lights,
 // ground decals, lightning ribbons, shockwaves and timed mesh effects.
 import * as THREE from 'three';
+import { Ballistics } from './ballistics.js';
 import * as TX from './textures.js';
 
 const VERT = /* glsl */ `
@@ -173,6 +174,7 @@ export class FX {
     this.decalGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
     this.boltTex = TX.boltTexture();
     this.heightAt = () => 0;
+    this.ball = new Ballistics(scene, camera); // tracer rounds and muzzle flashes (ballistics.js)
   }
 
   setScale(px) { for (const s of this.systems) s.mat.uniforms.uScale.value = px; }
@@ -182,6 +184,7 @@ export class FX {
   update(dt) {
     this.time += dt;
     for (const s of this.systems) s.update(dt, this.time);
+    this.ball.update(dt);
     for (const l of this.lights) {
       const u = l.userData;
       if (u.owner) continue;
@@ -436,7 +439,14 @@ export class FX {
     if (beamLen > 0) { // a short beam: only the stretch just ahead of the muzzle is drawn
       const L = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) || 1, k = Math.min(1, beamLen / L);
       b = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+      return this.oldTracer(a, b, color);
     }
+    // A real round: a thin hot streak that travels from the muzzle to the hit (ballistics.js).
+    this.ball.bullet(a, b, color || [1, 0.78, 0.42]);
+  }
+
+  // The old glowing-puff tracer, kept for short energy beams (Alien Blaster).
+  oldTracer(a, b, color) {
     const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
     const len = Math.hypot(dx, dy, dz) || 1;
     const n = Math.min(16, Math.max(4, Math.floor(len / 3)));
@@ -713,10 +723,11 @@ export class FX {
     this.smoke.emit({ p: [...p], v: [0, 0.6, 0], life: 0.6, s0: 0.4, s1: 1.4, c0: [0.5, 0.47, 0.42, 0.4], c1: [0.5, 0.47, 0.42, 0] });
   }
 
-  muzzle(p, dir, col = [1, 0.75, 0.4]) {
-    this.glow.emit({ p: [...p], life: 0.05, s0: 1.1, s1: 1.5, c0: [...col, 1], c1: [...col, 0] });
-    for (let i = 0; i < 3; i++) this.fire.emit({ p: [...p], v: [dir[0] * 14 + rnd(-1, 1), dir[1] * 14 + rnd(-1, 1), dir[2] * 14 + rnd(-1, 1)], life: 0.05, s0: 0.45, s1: 0.2, c0: [1, 0.85, 0.5, 1], c1: [1, 0.4, 0.1, 0] });
-    this.smoke.emit({ p: [...p], v: [dir[0] * 2, 0.6, dir[2] * 2], life: 0.5, s0: 0.25, s1: 0.9, c0: [0.6, 0.6, 0.6, 0.25], c1: [0.6, 0.6, 0.6, 0] });
-    this.flash(p, 0xffb060, 12, 0.06, 8);
+  // A real muzzle flash (ballistics.js): a quick star burst and flame tongues, a short warm light and a thin wisp.
+  muzzle(p, dir, col = [1, 0.75, 0.4], size = 0.3) {
+    this.ball.flash(p, dir, size);
+    this.smoke.emit({ p: [...p], v: [dir[0] * 1.5, 0.5, dir[2] * 1.5], life: 0.45, s0: 0.12, s1: 0.5, c0: [0.62, 0.6, 0.58, 0.12], c1: [0.62, 0.6, 0.58, 0] });
+    this.flash(p, 0xffa850, 7, 0.05, 6);
   }
+
 }

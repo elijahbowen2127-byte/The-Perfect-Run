@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { CONFIG, DUEL, GRAV, HEAL, CLASSES, CLASS_BY_ID, WEAPONS, WEAPON_BY_ID, DASH, freshStats, XP, puInfo } from './data.js';
 import { makeHumanoid } from './models.js';
-import { animateWeapon } from './weapons.js';
+import { animateWeapon, boltProto } from './weapons.js';
 import { launchArrow } from './longbow.js';
 import { applyMeta, metaPerks } from './meta.js';
 import { CHAR_BY_ID, CHARACTERS, makeCharacterModel, flushSwipes, setCharacterScale, STEP_KIND, stepAccum } from './characters.js';
@@ -18,6 +18,8 @@ const q10 = (v) => Math.round(v * 10);
 const rnd = (a, b) => a + Math.random() * (b - a);
 const v3 = () => new THREE.Vector3();
 const tmp = v3(), tmp2 = v3();
+// Muzzle flash size (metres across) by gun: handguns small, shotguns and belt-fed big.
+export const flashSize = (id) => ({ pistol: 0.22, revolver: 0.26, hpistol: 0.26, magnum: 0.3, shotgun: 0.42, coach: 0.45, sawedoff: 0.45, lmg: 0.4, minigun: 0.36, sniper: 0.4, lever: 0.36 }[id] || 0.32);
 
 export class LocalPlayer {
   constructor(game, { ch, sk, cls, weapons, name }) {
@@ -306,7 +308,7 @@ export class LocalPlayer {
       speed: this.board ? 0 : this.speedNow, pitch: this.pitch, gun: wp.kind === 'gun', reload: this.reloadT > 0,
       weapon: true, melee: this.meleeT > 0 ? 1 - this.meleeT / Math.max(0.2, wp.rate / this.stats.rate) : 0,
       cast: this.castT, dead: !this.alive, sprint: this.sprinting && this.recoilT === 0 && this.meleeT <= 0, recoil: this.recoilT, arc: wp.kind === 'melee' ? Math.min(360, wp.arc * this.stats.reach) : wp.arc,
-      block: !!this.blocking, swing: this.swing ? this.swing.a : null, eyes: !!wp.eyes && this.alive, eyeGlow: this.eyeGlow || 0.45,
+      block: !!this.blocking, swing: this.swing ? this.swing.a : null, ads: this.ads || 0, adsUp: wp.adsUp ?? 0.075, adsBack: wp.adsBack ?? (['dmr', 'sniper', 'lever'].includes(wp.id) ? 0.95 : 0.78), eyes: !!wp.eyes && this.alive, eyeGlow: this.eyeGlow || 0.45,
     }, dt, this.time);
     flushSwipes(m, this.game.fx);
     // The web line, from the hand the rig just posed up to the anchor.
@@ -404,6 +406,17 @@ export class LocalPlayer {
     this.fireCd = (wp.spin ? Math.min(0, this.fireCd) : 0) + wp.rate / this.stats.rate;
     const origin = this.muzzleWorld();
     if (wp.proj) { this.fireProjectile(wp, origin); if (this.ammo[this.cur] === 0) this.reload(); return; }
+    if (wp.bolt) {
+      // Crossbow: a real bolt flies (and can end up stuck in whoever it hits), not a hitscan line.
+      let dir = tmp.copy(g.aim.point).sub(origin).normalize();
+      if (dir.dot(g.aim.dir) < 0.3) dir = g.aim.dir.clone();
+      launchArrow(g, [origin.x, origin.y, origin.z], [dir.x, dir.y, dir.z], { speed: wp.boltSpeed || 95, dmg: wp.dmg * this.stats.dmg, pierce: wp.pierce || 1, mine: true, range: 160, proto: boltProto() });
+      g.audio.play('shot_crossbow', 0.9); g.recoil(wp.kick ?? 0.4); this.lastShot = g.now;
+      const end = origin.clone().addScaledVector(dir, 60);
+      g.emitFx(['shot', q10(origin.x), q10(origin.y), q10(origin.z), q10(end.x), q10(end.y), q10(end.z), wp.id]);
+      if (this.ammo[this.cur] === 0) this.reload();
+      return;
+    }
     // Rapid-fire (minigun): hits and effects are thinned out so 28 rounds a second stay cheap.
     const rapid = !!(wp.spin || wp.rapid), n = (this.shotN = (this.shotN || 0) + 1), reach = wp.range || 160;
     if (rapid) { this.heat = Math.min(1, this.heat + 0.035); this.lastShot = g.now; }
@@ -456,7 +469,7 @@ export class LocalPlayer {
     }
     if (gravAt) this.gravShot(gravAt);
     if (wp.energy) { if (n % 2 === 0) g.fx.pulseMuzzle([origin.x, origin.y, origin.z], (g.settings.view === 'first' || !!g.fpNow) ? 0.3 : 1); }
-    else if (!wp.quiet && (!rapid || n % 2 === 0)) g.fx.muzzle([origin.x, origin.y, origin.z], [g.aim.dir.x, g.aim.dir.y, g.aim.dir.z]);
+    else if (!wp.quiet && (!rapid || n % 2 === 0)) g.fx.muzzle([origin.x, origin.y, origin.z], [g.aim.dir.x, g.aim.dir.y, g.aim.dir.z], undefined, flashSize(wp.id));
     if (!rapid) g.audio.play('shot_' + wp.id, wp.quiet ? 0.8 : 1); // the minigun and Pulse Cannon sound as one continuous loop (audio.gunLoop / beamLoop)
     g.recoil(wp.kick ?? (wp.id === 'shotgun' || wp.id === 'coach' || wp.id === 'revolver' || wp.id === 'dmr' || wp.id === 'lever' ? 1 : 0.35));
     if (!rapid || n % (wp.energy ? 2 : 3) === 0) g.emitFx(['shot', q10(origin.x), q10(origin.y), q10(origin.z), q10(lastEnd.x), q10(lastEnd.y), q10(lastEnd.z), wp.id]);

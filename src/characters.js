@@ -39,6 +39,23 @@ export const CHAR_BY_ID = Object.fromEntries(CHARACTERS.map((c) => [c.id, c]));
 export const DEATH_DEF = { id: 'death', name: 'Death', file: 'sorceress.glb', build: 'reaper', height: 1.72 };
 
 const V = (...a) => new THREE.Vector3(...a);
+// Where a long gun's butt is, in weapon space (the back end of its stock), or null for guns without a stock.
+// Measured once from the model and cached on it.
+function buttOf(w) {
+  const u = w.userData;
+  if (u.butt !== undefined) return u.butt;
+  w.updateMatrixWorld(true);
+  let minZ = Infinity; const pts = [], v = new THREE.Vector3(), inv = new THREE.Matrix4().copy(w.matrixWorld).invert();
+  w.traverse((o) => {
+    if (!o.isMesh || !o.geometry || o === u.ammo) return;
+    const P = o.geometry.attributes.position, M = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+    for (let i = 0; i < P.count; i += 3) { v.fromBufferAttribute(P, i).applyMatrix4(M); pts.push(v.x, v.y, v.z); if (v.z < minZ) minZ = v.z; }
+  });
+  if (!(minZ < -0.12)) return (u.butt = null); // nothing reaches far enough back to be a stock
+  let y = 0, n = 0;
+  for (let i = 0; i < pts.length; i += 3) if (pts[i + 2] < minZ + 0.05) { y += pts[i + 1]; n++; }
+  return (u.butt = V(0, n ? y / n : 0, minZ + 0.015));
+}
 const UP = V(0, 1, 0);
 const templates = new Map();
 let animSource = null;
@@ -387,7 +404,19 @@ export class CharacterRig {
       const h = this.h;
       const aimQ = yaw.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), pitch));
       let gp, gq, reaperL = 0;
-      if (this.firstPerson) {
+      if (wd.bow && isGun) {
+        // Archery (Nutty 2026-11-05: the bow used to shove forward on the draw). The bow arm reaches out toward the aim
+        // and stays put; the string hand (the weapon origin = the nock) starts at the bow and pulls back to the cheek
+        // as the draw builds. wd.support is the grip in weapon space, which bowDraw slides forward with the draw, so
+        // placing the grip and backing the origin off from it puts the nock exactly where the draw says.
+        const fp = this.firstPerson, K = this.k;
+        const headP = fp ? this.eyeWorld() : B.get('Head').getWorldPosition(new THREE.Vector3());
+        const bobY = moving ? Math.sin(this.t * (st.sprint ? 13 : 9)) * (st.sprint ? 0.012 : 0.005) : 0;
+        const reach = fp ? V(0.11, -0.19 + bobY, 0.62).multiplyScalar(K) : V(-0.03, -0.07, 0.6).multiplyScalar(h);
+        gq = aimQ.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 0, 1), fp ? -0.3 : -0.05)); // a slight cant, like a real archer
+        const grip = headP.clone().add(reach.applyQuaternion(aimQ));
+        gp = grip.clone().sub(wd.support.clone().applyQuaternion(gq));
+      } else if (this.firstPerson) {
         // First person: the weapon lives in the camera's frame, arms reach for it.
         const eye = this.eyeWorld();
         const bob = moving ? Math.sin(this.t * (st.sprint ? 13 : 9)) * (st.sprint ? 0.014 : 0.007) : Math.sin(this.t * 1.6) * 0.002;
@@ -396,6 +425,14 @@ export class CharacterRig {
         if (isGun) {
           // Fist weapons: both wrists up ahead of you. Pulse Cannon: braced low on the right shoulder, barrel out in front.
           const off = wd.fist ? V(0, -0.21 + bob, 0.44) : wd.shoulder ? V(-0.29 + bobX, -0.34 + bob, 0.32) : wd.pistol ? V(-0.13 + bobX, -0.16 + bob, 0.45) : V(-0.16 + bobX, -0.19 + bob, 0.4);
+          // Aiming down the sights: the GUN comes up to the eye (the camera never leaves the head, so it can't end up
+          // inside the body). The sight line sits adsUp above the barrel's axis; the muzzle ends adsBack ahead of the eye.
+          const ads = st.ads || 0;
+          if (ads > 0.001 && !wd.fist && !wd.shoulder && wd.muzzle) {
+            const e = ads * ads * (3 - 2 * ads), mz = wd.muzzle;
+            const sight = V(-mz.x, -(mz.y + (st.adsUp ?? 0.075)), (st.adsBack ?? 0.78) + 0.16 - mz.z); // +0.16: eye relief behind the rear sight
+            off.lerp(sight, e);
+          }
           if (st.recoil) { off.z -= (wd.shoulder ? 0.02 : 0.05) * st.recoil; off.y += 0.012 * st.recoil; }
           gp = eye.clone().add(off.multiplyScalar(K).applyQuaternion(aimQ));
           gq = aimQ.clone();
@@ -444,6 +481,14 @@ export class CharacterRig {
         if (st.recoil) off.z -= (wd.shoulder ? 0.015 : 0.035) * st.recoil * h;
         gp = sc.clone().add(off.applyQuaternion(aimQ));
         gq = aimQ.clone();
+        // Long guns with a stock: the butt goes into the right shoulder pocket (Nutty 2026-11-05: guns used to float out
+        // at arm's length), so the grip hand sits by the chest and the support hand reaches the forend.
+        const butt = !pistol && !special ? buttOf(wpn) : null;
+        if (butt) {
+          const pocket = B.get('RightArm').getWorldPosition(new THREE.Vector3()).add(V(0.07, -0.05, 0.05).multiplyScalar(h).applyQuaternion(aimQ));
+          if (st.recoil) pocket.add(V(0, 0, -0.03 * st.recoil * h).applyQuaternion(aimQ));
+          gp = pocket.sub(butt.clone().applyQuaternion(gq));
+        }
         if (st.recoil) gq.multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), (wd.shoulder ? -0.04 : -0.12) * st.recoil));
         if (st.reload) {
           if (wd.shoulder) gp.add(V(0, -0.02 * h, 0));
@@ -533,7 +578,8 @@ export class CharacterRig {
       } else if (supP) {
         const sp = supP.clone().applyMatrix4(wpn.matrixWorld);
         let f, p;
-        if (isGun && wd.pistol) { f = V(0.3, -0.5, 1).normalize(); p = V(-1, 0.3, 0).normalize(); }
+        if (wd.bow) { f = V(-0.25, 0.05, 1).normalize(); p = V(-1, 0, -0.15).normalize(); } // fist round the riser, arm straight at the target
+        else if (isGun && wd.pistol) { f = V(0.3, -0.5, 1).normalize(); p = V(-1, 0.3, 0).normalize(); }
         else if (isGun) { f = V(-0.45, 0.1, 1).normalize(); p = V(0, 1, 0); }
         else { f = V(0, -1, 0); p = V(1, 0, 0); }
         this.grab('Left', sp, f.applyQuaternion(wq), p.applyQuaternion(wq), 0.9, right.clone().negate(), h);

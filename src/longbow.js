@@ -402,8 +402,11 @@ function arrowProto(style) {
 // Loose an arrow from `o` along `d` (world, arrays). It flies under gravity, is checked against enemies, the ground,
 // props and duel walls every frame, pierces `pierce` enemies (the shooter's own hits only, like every weapon), and
 // sticks where it lands for a while. Returns the effect so a test can watch it.
-export function launchArrow(g, o, d, { speed = 60, dmg = 0, pierce = 1, style = 'bow1', mine = false, range = 120, head = 1.5 } = {}) {
-  const mesh = arrowProto(style).clone();
+// `proto` (optional) is the mesh to fly instead of a bow's arrow, head at the origin pointing +z (the crossbow's bolt).
+// An arrow that ends in an enemy who is still standing stays stuck in them (stickInto), riding the nearest bone.
+export function launchArrow(g, o, d, { speed = 60, dmg = 0, pierce = 1, style = 'bow1', mine = false, range = 120, head = 1.5, proto = null } = {}) {
+  const mesh = (proto || arrowProto(style)).clone();
+  mesh.scale.setScalar(1.2); // a touch bigger in flight so the eye can follow it
   const pos = new THREE.Vector3(...o), vel = new THREE.Vector3(...d).normalize().multiplyScalar(speed), last = pos.clone(), dir = new THREE.Vector3();
   const Z = new THREE.Vector3(0, 0, 1), w = g.world, hitIds = new Set();
   mesh.position.copy(pos); mesh.quaternion.setFromUnitVectors(Z, vel.clone().normalize());
@@ -431,7 +434,11 @@ export function launchArrow(g, o, d, { speed = 60, dmg = 0, pierce = 1, style = 
           const k = Math.pow(0.7, hitIds.size - 1);
           if (st.dmg) g.damage(h.t, st.dmg * k * (h.head ? head : 1), { at: h.point, head: h.head });
           g.fx.impact([h.point.x, h.point.y, h.point.z], [0.75, 0.12, 0.08]);
-          if (hitIds.size >= pierce) { thunk(h.point, 0.8); return false; } // buried in the last one: gone with it
+          if (hitIds.size >= pierce) { // buried in the last one: it stays in them while they are up
+            thunk(h.point, 0.8);
+            if (h.t.view && h.t.view.model && !(h.t.view.hp <= 0)) { stickInto(h.t.view, mesh, h.point, dir); st.inMob = true; }
+            return false;
+          }
           vel.multiplyScalar(0.85);
         }
       }
@@ -448,12 +455,33 @@ export function launchArrow(g, o, d, { speed = 60, dmg = 0, pierce = 1, style = 
       }
       st.traveled += step;
       st.spin += dt * 18;
+      // A faint wake behind it, so you can follow the flight.
+      if (g.fx.glow && st.age > 0.02) for (let i = 0; i < 2; i++) { const b = pos.clone().addScaledVector(dir, -0.7 - i * step * 0.5); g.fx.glow.emit({ p: [b.x, b.y, b.z], life: 0.22, s0: 0.09, s1: 0.03, c0: [1, 0.96, 0.85, 0.32], c1: [1, 0.9, 0.8, 0] }); }
       mesh.position.copy(pos);
       mesh.quaternion.setFromUnitVectors(Z, dir.copy(vel).normalize());
       mesh.rotateZ(st.spin);
       return st.traveled < range && st.age < 8 && pos.y > -60;
     },
-    dispose: () => { g.fx.scene.remove(mesh); },
+    dispose: () => { if (!st.inMob) g.fx.scene.remove(mesh); },
   });
   return eff;
+}
+
+// Leave a spent arrow (mesh, already flying in world space) sticking out of an enemy's body at `p`, pointing along
+// `dir`: it is re-parented to the nearest bone so it moves with them, and goes when they are removed. Up to 6 a body.
+const _bp = new THREE.Vector3();
+export function stickInto(view, mesh, p, dir) {
+  const root = view.model;
+  let best = root, bd = Infinity;
+  root.updateMatrixWorld(true);
+  root.traverse((o) => { if (o.isBone) { o.getWorldPosition(_bp); const d = _bp.distanceToSquared(p); if (d < bd) { bd = d; best = o; } } });
+  if (mesh.parent) mesh.parent.remove(mesh);
+  mesh.scale.setScalar(1);
+  mesh.position.copy(p).addScaledVector(dir, 0.12); // head buried a little way in
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+  mesh.updateMatrixWorld(true);
+  best.attach(mesh);
+  const list = (view.stuckArrows = view.stuckArrows || []);
+  list.push(mesh);
+  if (list.length > 6) { const old = list.shift(); old.parent && old.parent.remove(old); }
 }

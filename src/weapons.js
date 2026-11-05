@@ -1074,3 +1074,14 @@ export function animateWeapon(w, spin = 0, dt = 0, loaded = true, charge = loade
     u.gauge.forEach((gm, i) => gm.color.copy(i < lit ? (charge < 0.25 ? GAUGE_LOW : GAUGE_ON) : GAUGE_OFF));
   }
 }
+
+// The crossbow's bolt as a flying projectile: head at the origin, pointing +z (longbow.js launchArrow's `proto`).
+let BOLT = null;
+export function boltProto() {
+  if (BOLT) return BOLT;
+  const d = GUNS.crossbow(), inner = build(d.ammo);
+  inner.position.set(0, -0.0715, -0.59);
+  inner.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  BOLT = new THREE.Group(); BOLT.add(inner);
+  return BOLT;
+}
