@@ -36,7 +36,7 @@ export const CLASSES = [
     id: 'tempest', name: 'Tempest', element: 'Storm', color: 0x2c3f8f, accent: 0x8fb4ff, css: '#8fb4ff',
     tagline: 'Strike first. Strike everywhere.',
     q: { id: 'chain', name: 'Chain Lightning', cd: 5, desc: 'A thick braid of lightning strands that snap together on one focal point at the far end, going straight through everything in its path and striking every enemy it touches. The current also reflects to nearby enemies.' },
-    r: { id: 'storm', name: 'Thunderstorm', cd: 10, desc: 'Call a wide storm cell (26 m across) that hammers the whole area with lightning for 4s. Anything inside it keeps getting shocked.' },
+    r: { id: 'storm', name: 'Thunderstorm', cd: 10, desc: 'Call a wide storm cell (26 m across) that hammers the whole area with lightning for 4s. Every bolt stays up until the storm ends and hits anything that touches it.' },
     e: { id: 'shockwave', name: 'Thunder Shockwave', cd: 10, desc: 'Slam the ground and send a tight ring of electricity racing 32 m in every direction. Everything it crosses is badly shocked.' },
   },
   {

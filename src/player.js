@@ -1232,9 +1232,8 @@ export class LocalPlayer {
     const ca = [c.x, g.world.heightAt(c.x, c.z), c.z];
     const seed = (Math.random() * 1e9) | 0;
     const k = this.stats.dmg * this.mm('storm');
-    // Nutty (2026-11-05): the storm lasts 4 s, and the whole cell shocks anything inside it every half second
-    // (5 a tick, 40 over the cell's life) on top of the bolts, so mobs that walk in late still get hurt.
-    g.el.thunderstorm(ca, seed, 4, 13, (p) => { g.areaDamage(p, 2.8, 42 * k, { slow: 1 }); g.audio.play('thunder', 0.6); }, () => g.areaDamage(ca, 13, 5 * k, { slow: 1 }));
+    // Nutty (2026-11-05): the storm lasts 4 s; every bolt stays up as a column and anything touching one takes the full bolt again every 0.5 s.
+    g.el.thunderstorm(ca, seed, 4, 13, (p) => { g.areaDamage(p, 2.8, 42 * k, { slow: 1 }); g.audio.play('thunder', 0.6); }, (p) => g.areaDamage(p, 2.8, 42 * k, { slow: 1 }));
     g.audio.play('thunder');
     g.emitFx(['sr', ...ca.map(q10), seed]);
   }

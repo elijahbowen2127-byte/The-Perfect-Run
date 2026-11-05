@@ -606,11 +606,14 @@ export class Elements {
     });
   }
 
-  // onTick (caster only): called every 0.5 s while the cell is up, so whatever walks into it keeps getting shocked.
-  thunderstorm(c, seed, dur = 4, radius = 8, onStrike, onTick) {
+  // Nutty (2026-11-05): every bolt that lands stays up as a crackling column until the storm ends (4 s), and anything
+  // that touches a column takes the bolt's full hit again every half second (onLinger(p), caster only), so mobs
+  // can't just walk through it.
+  thunderstorm(c, seed, dur = 4, radius = 8, onStrike, onLinger) {
     const fx = this.fx;
     const r = mulberry32(seed);
-    let next = 0.4, tick = 0.25;
+    let next = 0.4;
+    const cols = [];
     const cy = this.h(c[0], c[2]) + 17;
     fx.decal([c[0], 0, c[2]], TX.ringDecal(), radius * 2, dur, { color: 0x6f8cff, additive: true, opacity: 0.5 });
     fx.add({
@@ -625,10 +628,23 @@ export class Elements {
           const a = r() * 6.28, rr = Math.sqrt(r()) * radius;
           const x = c[0] + Math.cos(a) * rr, z = c[2] + Math.sin(a) * rr;
           this.strike(x, z);
-          onStrike && onStrike([x, this.h(x, z), z]);
+          const gp = [x, this.h(x, z), z];
+          onStrike && onStrike(gp);
+          cols.push({ p: gp, zap: 0.12 + r() * 0.1, hit: 0.5 });
           next += 0.24; // a 13 m wide cell: strikes come a little faster to keep it dense
         }
-        while (onTick && t >= tick && tick < dur) { onTick(); tick += 0.5; }
+        // The standing columns: a thin crackle down each one a few times a second, a glow where it meets the ground.
+        const every = fx.q === 0 ? 0.42 : 0.26;
+        for (const k of cols) {
+          k.zap -= dt; k.hit -= dt;
+          if (k.zap <= 0) {
+            k.zap = every * (0.8 + Math.random() * 0.4);
+            const [x, y, z] = k.p;
+            fx.bolt([x + rnd(-0.8, 0.8), y + 22, z + rnd(-0.8, 0.8)], [x, y, z], { width: 0.45, dur: every * 1.1, color: 0xb8ceff, branches: 1, jag: 0.1 });
+            fx.glow.emit({ p: [x, y + 0.4, z], life: every * 1.4, s0: 2.4, s1: 3.2, c0: [0.6, 0.72, 1, 0.55], c1: [0.3, 0.4, 1, 0] });
+          }
+          if (onLinger && k.hit <= 0) { k.hit = 0.5; onLinger(k.p); }
+        }
       },
     });
   }
