@@ -48,8 +48,8 @@ const fmtTime = (s) => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60
 
 export const ICONS = {
   Fire: '<svg viewBox="0 0 24 24"><path d="M12 2c1 4-3 5-3 9a3 3 0 0 0 6 0c0-1.5-.8-2.6-1-4 2.5 1.5 4 4.2 4 7a6 6 0 0 1-12 0c0-5 5-7 6-12z"/></svg>',
-  Earth: '<svg viewBox="0 0 24 24"><path d="M2 20l6-10 4 6 3-4 7 8z"/><path d="M8 10l2-3 2 3" opacity=".6"/></svg>',
-  Storm: '<svg viewBox="0 0 24 24"><path d="M13 2L4 14h6l-2 8 10-13h-6z"/></svg>',
+  Earth: '<svg viewBox="0 0 24 24"><path d="M3.5 18.5l1.2-6.2 3.8-5 6-1.3 4.6 3.6 1.4 6.4-2.6 3.5H6.2z"/><path d="M9 8.5l2.2 4.3-1.4 3.4M11.2 12.8l4.4-1.6M15.6 11.2l1.8 3.6" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  Storm: '<svg viewBox="0 0 24 24"><path fill="#9cc0ff" d="M13 2L4 14h6l-2 8 10-13h-6z"/></svg>',
   Frost: '<svg viewBox="0 0 24 24"><path d="M11 2h2v20h-2zM2 11h20v2H2zM4.2 5.6l1.4-1.4 14.2 14.2-1.4 1.4zM18.4 4.2l1.4 1.4L5.6 19.8l-1.4-1.4z"/></svg>',
   Wind: '<svg viewBox="0 0 24 24"><path d="M3 8h11a3 3 0 1 0-3-3h-2a5 5 0 1 1 5 5H3zM3 13h15a3 3 0 1 1-3 3h2a1 1 0 1 0 1-1H3zM3 18h7v2H3z"/></svg>',
 };
@@ -115,6 +115,7 @@ export class UI {
     if (!s) return;
     const kids = [...s.children];
     kids.forEach((k) => (k.style.zoom = ''));
+    if (s.classList.contains('arc-on')) return; // the arcade select scales itself to the screen
     // Content that is taller than the screen also hides above the top when centred, so measure the real edges.
     const over = () => {
       const r = s.getBoundingClientRect();
@@ -167,10 +168,25 @@ export class UI {
     };
     this.wireFireRing();
     this.$('#btn-solo').onclick = () => { g.audio.unlock(); g.audio.play('ui'); g.duelMode = false; g.playSolo(); };
-    this.$('#btn-create').onclick = async () => {
+    this.$('#btn-create').onclick = () => {
       g.audio.unlock(); g.audio.play('ui'); g.duelMode = false;
-      this.busy('Creating your party…');
-      try { await g.createParty(); } catch (e) { this.showTitle(); this.toast(e.message || 'Could not create a party', 'bad'); }
+      this.screen('s-create');
+    };
+    const create = async (pub) => {
+      g.audio.play('ui'); g.duelMode = false;
+      this.busy(pub ? 'Creating your public party…' : 'Creating your private party…');
+      try { await g.createParty(pub); } catch (e) { this.showTitle(); this.toast(e.message || 'Could not create a party', 'bad'); }
+      this.busy(null);
+    };
+    this.$('#create-public').onclick = () => create(true);
+    this.$('#create-private').onclick = () => create(false);
+    this.$('#join-quick').onclick = async () => {
+      g.audio.unlock(); g.audio.play('ui');
+      this.busy('Finding an open game…');
+      try {
+        const r = await g.quickplay();
+        if (r === 'created') this.toast('No open games right now, so you are hosting a public one. Players who Quickplay will land here.', 'good');
+      } catch (e) { this.screen('s-join'); this.toast(e.message || 'Quickplay could not connect', 'bad'); }
       this.busy(null);
     };
     this.$('#btn-join').onclick = () => { g.audio.unlock(); g.audio.play('ui'); this.screen('s-join'); this.refreshPartyList(); };
@@ -347,7 +363,7 @@ export class UI {
     this.screen('s-title');
     if (this.game.seat !== 2) this.game.audio.startLobbyMusic();
     const r = this.game.records || {};
-    this.$('#records').innerHTML = `<div><b>${r.bestRound || 0}</b><span>Best round</span></div><div><b>${r.wins || 0}</b><span>Perfect runs</span></div><div><b>${r.totalKills || 0}</b><span>Lifetime kills</span></div><div><b>${r.runs || 0}</b><span>Runs</span></div>`;
+    this.$('#records').innerHTML = `<div><b>${r.wins || 0}</b><span>Completed runs</span></div><div><b>${r.totalKills || 0}</b><span>Lifetime kills</span></div>`;
     this.$('#hud').classList.remove('on');
     this.game.duelMode = false;
     this.$('#title-pp').textContent = getMeta().pp.toLocaleString();
@@ -361,9 +377,9 @@ export class UI {
     this.$('#net-note').textContent = t === 'room'
       ? 'Friends who open this same game link appear here. Their party shows up automatically.'
       : t === 'bc' ? 'Local test mode: parties from other tabs on this computer.' : t === 'peer' ? 'Ask your friend for their party code or invite link.' : 'Looking for parties…';
-    const parties = g.lobby ? g.lobby.parties().filter((p) => !p.me) : [];
+    const parties = g.lobby ? g.lobby.parties().filter((p) => !p.me && p.pub !== 0) : [];
     list.innerHTML = parties.length
-      ? parties.map((p) => `<button class="party-row" data-code="${esc(p.code)}"><span class="pr-host">${esc(p.host || 'Party')}'s party</span><span class="pr-n">${Math.min(5, p.n || 1)}/5</span><span class="pr-code">${esc(p.code)}</span></button>`).join('')
+      ? parties.map((p) => `<button class="party-row" data-code="${esc(p.code)}"><span class="pr-host">${esc(p.host || 'Party')}'s ${p.dm ? 'duel' : 'party'}</span><span class="pr-n">${Math.min(5, p.n || 1)}/5</span><span class="pr-code">${esc(p.code)}</span></button>`).join('')
       : `<div class="empty">${t === 'peer' ? 'Enter a code below to join.' : 'No open parties yet.'}</div>`;
     this.$$('.party-row', list).forEach((b) => (b.onclick = () => this.join(b.dataset.code)));
   }
@@ -427,7 +443,7 @@ export class UI {
       const kind = w.kind === 'gear' ? 'Gear' : act ? 'Gear · Active' : w.eyes ? 'Eye beams' : w.kind === 'melee' ? 'Melee' : w.proj ? 'Explosive' : w.auto ? 'Automatic' : 'Firearm';
       const stats = w.kind === 'gear' || act ? `<div class="w-how">${esc(w.how || 'Passive')}</div>`
         : `<div class="w-stats"><label>Damage</label><div class="bar">${bar(w.dmg * (w.pellets || 1), 100)}</div><label>Speed</label><div class="bar">${bar(1 / w.rate, 10)}</div><label>DPS</label><div class="bar">${bar(dps, 180)}</div></div>`;
-      return `<button class="wcard ${TIER(w) === 3 ? 'gear' : ''}" data-w="${w.id}">
+      return `<button class="wcard ${TIER(w) === 3 ? 'gear' : ''}" data-w="${w.id}" title="${esc(w.name + ': ' + (w.desc || ''))}">
         ${wshots[w.id] ? `<img class="w-img" src="${wshots[w.id]}" alt="">` : ''}
         <div class="w-kind">${kind}</div>
         <div class="w-name">${w.name}</div>
@@ -454,7 +470,8 @@ export class UI {
     this.$('#game-mode').onchange = (e) => { g.audio.play('ui'); g.setDuelMode(e.target.value === 'duel'); this.renderLobby(); };
     this.$('#cpu-play').onchange = (e) => { g.audio.play('ui'); g.autoplay = e.target.checked; this.refreshHints(); };
     this.$('#cpu-play').checked = !!g.autoplay;
-    this.$('#round-len').onchange = (e) => g.setRoundLen(+e.target.value);
+    this.$('#round-len').onchange = (e) => { g.audio.play('ui'); g.setRoundLen(+e.target.value); };
+    this.$('#party-vis').onchange = (e) => { g.audio.play('ui'); g.setPublic(e.target.value === 'pub'); };
     this.$('#difficulty').onchange = (e) => { g.audio.play('ui'); g.setHard(e.target.value === 'hard'); };
     this.$('#difficulty').value = g.settings.hard ? 'hard' : 'normal';
     this.$('#round-len').value = String(g.settings.roundLen);
@@ -483,7 +500,47 @@ export class UI {
     };
     this.$('#couch-pad').innerHTML = couch ? '<b>Your controls</b><ul>' + controlsHtml(g.padKind(), g.settings.layout) + '</ul>' : '';
     this.$('#summary').classList.remove('on');
+    this.arcLayout();
     this.renderLobby();
+  }
+
+  // Arcade-versus character select (full screen only): the existing lobby pieces are moved into a one-screen layout,
+  // with the roster along the bottom, element orbs and abilities on the left, the Weapon Wall and Ready on the right.
+  // Split-screen couch play keeps the old three-column lobby, so every piece goes back where it came from.
+  arcLayout() {
+    const g = this.game, on = !document.body.classList.contains('split');
+    const root = this.$('#s-lobby');
+    if (!this._arc) {
+      const a = document.createElement('div');
+      a.className = 'arc';
+      a.innerHTML = `<div class="arc-shade"></div>
+        <div class="arc-top"><div class="arc-logo">THE PERFECT RUN</div><div class="arc-opts"></div><div class="arc-chip arc-pp"><small>PP</small><b id="arc-pp">0</b></div><div class="arc-leave"></div></div>
+        <div class="arc-hero"><div class="arc-name"></div><div class="arc-bars" id="arc-bars"></div><div class="arc-skins"></div></div>
+        <div class="arc-orbs"></div>
+        <div class="arc-abil"></div>
+        <div class="arc-party"></div>
+        <div class="arc-wall"><h3 class="arc-h">Weapon Wall <small>any 3 · weapons or gear</small></h3><div class="arc-wall-in"></div></div>
+        <div class="arc-ready"><div class="arc-p1" id="arc-p1"></div></div>
+        <div class="arc-roster"></div>`;
+      root.appendChild(a);
+      const q = (s) => a.querySelector(s);
+      this._arc = { el: a, moves: [
+        ['#lobby-title', '.arc-opts'], ['#couch-warn', '.arc-opts'], ['#mode-field', '.arc-opts'], ['#vis-field', '.arc-opts'], ['#cpu-field', '.arc-opts'], ['#diff-field', '.arc-opts'], ['#round-field', '.arc-opts'],
+        ['#btn-leave', '.arc-leave'], ['#stage-name', '.arc-name'], ['#skin-row', '.arc-skins'], ['#class-cards', '.arc-orbs'], ['#class-detail', '.arc-abil'],
+        ['#invite', '.arc-party'], ['#members', '.arc-party'], ['#couch-pad', '.arc-party'],
+        ['.slots', '.arc-wall-in'], ['#wall', '.arc-wall-in'], ['#btn-ready', '.arc-ready'], ['#char-cards', '.arc-roster'],
+      ].map(([sel, to]) => { const n = this.$(sel); return { n, to: q(to), home: n.parentNode, next: n.nextSibling }; }) };
+    }
+    const A = this._arc;
+    if (A.on === on) return;
+    A.on = on;
+    for (const m of A.moves) {
+      if (on) m.to.appendChild(m.n);
+      else m.home.insertBefore(m.n, m.next && m.next.parentNode === m.home ? m.next : null);
+    }
+    A.el.style.display = on ? '' : 'none';
+    root.classList.toggle('arc-on', on);
+    g.menu.arc = on;
   }
 
   // Skin picker for the selected character: swatch chips, a price tag (free for now) and a live 3D preview.
@@ -529,17 +586,30 @@ export class UI {
     this.$$('.char-card').forEach((b) => { this.$('.ch-taken', b).innerHTML = others.filter((m) => m.p.ch === b.dataset.ch).map((m) => `<span>${g.bot ? 'CPU' : g.party.kind === 'local' ? 'PLAYER ' + (m.id === 'p2' ? 2 : 1) : esc(m.p.n)}</span>`).join(''); });
     this.$$('.class-card').forEach((b) => b.classList.toggle('sel', b.dataset.c === lo.c));
     const picked = splitLoadout(lo.w), order = [...picked.ws, ...picked.gears];
+    // Slot colours: primary red, other weapons blue, gear purple (on the slots and on the picked wall tiles).
+    const KINDS = ['k-pri', 'k-sec', 'k-gear'];
+    const slotKind = (i) => { const w = WEAPON_BY_ID[order[i]]; return !w ? KINDS[i] : TIER(w) === 3 ? 'k-gear' : i === 0 ? 'k-pri' : 'k-sec'; };
     this.$$('.wcard').forEach((b) => {
       const i = order.indexOf(b.dataset.w);
       b.classList.toggle('sel', i >= 0);
+      for (const k of KINDS) b.classList.toggle(k, i >= 0 && slotKind(i) === k);
       this.$('.w-slot', b).textContent = i >= 0 ? String(i + 1) : '';
     });
     [0, 1, 2].forEach((i) => {
       const w = WEAPON_BY_ID[order[i]];
       this.$('#slot-' + i).classList.toggle('full', !!w);
+      for (const k of KINDS) this.$('#slot-' + i).classList.toggle(k, slotKind(i) === k);
       this.$('#slot-' + i + ' span').textContent = w ? (w.kind === 'gear' ? 'Gear' : i === 0 ? 'Primary' : 'Weapon') : ['Primary', 'Secondary', 'Gear'][i];
       this.$('#slot-' + i + ' b').textContent = w ? w.name : 'Empty';
     });
+    this.arcLayout();
+    if (this._arc && this._arc.on) {
+      this._arc.el.style.setProperty('--acc', cls.css);
+      const bar = (l, v, max) => `<div class="abar"><span>${l}</span><i style="--v:${Math.min(100, (v / max) * 100)}%"></i></div>`;
+      this.$('#arc-bars').innerHTML = bar('Health', chr.stats.hp, 1.3) + bar('Speed', chr.stats.speed, 1.12);
+      this.$('#arc-pp').textContent = getMeta().pp.toLocaleString();
+      this.$('#arc-p1').textContent = (g.bot ? 'YOU' : g.party.kind === 'local' ? 'PLAYER ' + g.seat : esc(g.myName || 'P1')) + (g.ready ? ' · LOCKED IN' : ' · ' + order.length + '/3 PICKED');
+    }
     this.$('#stage-name').innerHTML = `<div class="sn-role">${chr.role}</div><div class="sn-name">${chr.name}</div><div class="sn-blurb">${esc(chr.blurb)}</div>`;
     this.$('#class-detail').style.setProperty('--cc', cls.css);
     this.$('#class-detail').innerHTML = `
@@ -559,6 +629,7 @@ export class UI {
     this.$('#game-mode').value = duel ? 'duel' : 'run';
     this.$('#cpu-field').classList.toggle('on', g.party.kind === 'solo' && !duel);
     this.$('#round-field').style.display = duel || (couch && !g.isHost) ? 'none' : '';
+    this.$('#diff-field').style.display = duel ? 'none' : ''; // Duel Mode has no difficulty, CPU Run or mutators
     const startWord = duel ? 'Start the duel' : 'Start the run';
     this.$('#lobby-title').textContent = g.bot ? 'Duel Arena · versus the CPU' : duel ? (couch ? 'Couch duel' : 'Duel party ' + (g.partyCode || '')) : couch ? 'Couch co-op' : g.party.kind === 'solo' ? 'Solo run' : 'Party ' + g.partyCode;
     // Couch co-op: publish which step this seat is on so the other seat can show it.
@@ -590,6 +661,10 @@ export class UI {
       ? members.slice().sort((a, b) => (a.id < b.id ? -1 : 1)).map((m) => memberHtml(m, m.id === 'p2' ? 2 : 1)).join('')
       : members.map((m) => memberHtml(m, 0)).join('') + (g.party.kind === 'solo' ? '' : `<div class="member empty-slot">${members.length}/5 · waiting for friends</div>`);
     this.$('#round-len').disabled = !g.isHost;
+    const online = g.party.kind !== 'solo' && g.party.kind !== 'local';
+    this.$('#vis-field').style.display = online ? '' : 'none';
+    this.$('#party-vis').disabled = !g.isHost;
+    this.$('#party-vis').value = (g.isHost ? g.partyPublic !== false : !(host && host.p.lb && host.p.lb.pub === 0)) ? 'pub' : 'priv';
     if (!g.isHost) this.$('#round-len').value = String(hostRl);
     this.$('#difficulty').disabled = !g.isHost;
     if (!g.isHost) this.$('#difficulty').value = host && host.p.lb && host.p.lb.hd ? 'hard' : 'normal';
@@ -808,7 +883,7 @@ export class UI {
     const adsF = p.alive ? p.ads : 0;
     const scopedW = wp.id === 'dmr' || wp.id === 'sniper' || wp.id === 'lever';
     { const wk = p.board ? Math.round((p.windK || 0) * 20) / 20 : 0, we = this.$k('#wind'); if (we && we._k !== wk) { we._k = wk; we.style.opacity = wk * 0.85; } }
-    const chc = (wp.kind === 'melee' ? 'melee' : '') + (adsF > 0.5 ? ' ads' : ''), ch = this.$k('#crosshair');
+    const chc = (wp.kind === 'melee' ? 'melee' : '') + (adsF > 0.5 ? (fpv ? ' ads' : ' ads-tp') : ''), ch = this.$k('#crosshair');
     if (ch._k !== chc) { ch._k = chc; ch.className = chc; }
     const so = '0', sc = this.$k('#scope'); // the black scope overlay is gone: scoped guns show a real scope picture (scope.js)
     if (sc._o !== so) { sc._o = so; sc.style.opacity = so; }
@@ -823,7 +898,7 @@ export class UI {
     const timerText = g.duel ? fmtTime(g.tl || 0) : ph === 'play' ? (g.endless ? '∞' : g.tl <= 0 ? 'DEATH' : fmtTime(g.tl)) : ph === 'vote' ? fmtTime(g.tl) : ph === 'boss' ? 'BOSS' : ph === 'demon' ? 'RUN' : ph === 'bless' || ph === 'sproam' ? fmtTime(g.tl) : ph === 'extract' ? 'EXTRACT' : '';
     this.setT('#timer', timerText);
     this.setC('#timer', 'urgent', (g.duel && ph === 'duel' && g.tl < 30) || (ph === 'play' && !g.endless && g.tl < 30) || (ph === 'play' && !!g.views.demon) || ph === 'vote' || ph === 'demon');
-    this.setT('#phase-hint', g.duel ? (ph === 'duel' ? 'Next power-up in ' + Math.max(0, Math.ceil(g.dpt || 0)) + 's · first one down loses' : ph === 'dpick' ? 'Choose your power-up' : ph === 'dcount' ? 'Get ready' : '') : ph === 'play' ? (g.world && g.world.biome.id === 'space' ? 'Hunt and loot. The Visitor lands when the clock hits zero' : g.views.demon ? 'Death is hunting you. Hold ' + this.ctl('use') + ' at the altar to summon the boss, or kill her' : 'Hunt and loot until the clock runs out, then hold ' + this.ctl('use') + ' at the altar') : ph === 'boss' ? 'Defeat the boss' : ph === 'demon' ? 'Death is hunting you' : ph === 'bless' ? 'Choose a Deity Blessing' : ph === 'sproam' ? 'Free roam: open crates and hire NPCs before the ship leaves for space' : '');
+    this.setT('#phase-hint', g.duel ? (ph === 'duel' ? 'Next power-up in ' + Math.max(0, Math.ceil(g.dpt || 0)) + 's · first one down loses' : ph === 'dpick' ? 'Choose your power-up' : ph === 'dcount' ? 'Get ready' : '') : ph === 'play' ? (g.world && g.world.biome.id === 'space' ? 'Hunt and loot. The Visitor lands when the clock hits zero' : g.endless && !g.views.demon ? 'Endless: hunt as long as you like, then hold ' + this.ctl('use') + ' at the altar to call the boss' : g.views.demon ? 'Death is hunting you. Hold ' + this.ctl('use') + ' at the altar to summon the boss, or kill her' : 'Hunt and loot until the clock runs out, then hold ' + this.ctl('use') + ' at the altar') : ph === 'boss' ? 'Defeat the boss' : ph === 'demon' ? 'Death is hunting you' : ph === 'bless' ? 'Choose a Deity Blessing' : ph === 'sproam' ? 'Free roam: open crates and hire NPCs before the ship leaves for space' : '');
     this.setT('#pc', p.pc);
     this.setT('#kills', p.totalKills);
     this.setT('#beds', p.beds);

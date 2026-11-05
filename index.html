@@ -36,7 +36,7 @@
       <button class="btn" id="btn-join">Join Party</button>
       <button class="btn" id="btn-couch">Couch Co-op <small>split-screen · 2 players</small></button>
       <button class="btn duel-btn" id="btn-duel">Duel Arena <small>1v1 in a random arena · vs CPU or a friend</small></button>
-      <button class="btn pshop-btn" id="btn-pshop">Perfect Shop <small>permanent power-ups · <b id="title-pp">0</b> PP</small></button>
+      <button class="btn pshop-btn" id="btn-pshop">Perfect Shop <small>Permanent Power-Ups · <b id="title-pp">0</b> PP</small></button>
       <button class="btn unlocks-btn" id="btn-unlocks">Unlockables <small>Gear &amp; More!</small></button>
       <div class="view-toggle" id="view-toggle"><span>Camera</span><button data-view="first">First person</button><button data-view="third">Third person</button></div>
       <div class="menu-row">
@@ -89,10 +89,22 @@
   </div>
 </section>
 
+<!-- ============ CREATE ============ -->
+<section class="screen" id="s-create">
+  <div class="panel narrow">
+    <h2>Create a party</h2>
+    <p class="muted">Public parties show up in Join Party and Quickplay can drop players straight in. Private parties are invite or code only.</p>
+    <button class="btn primary big" id="create-public"><b>Public</b><small>Anyone can find it or Quickplay into it</small></button>
+    <button class="btn big" id="create-private"><b>Private</b><small>Friends join with your invite link or party code</small></button>
+    <button class="btn small ghost" data-back="s-title">Back</button>
+  </div>
+</section>
+
 <!-- ============ JOIN ============ -->
 <section class="screen" id="s-join">
   <div class="panel narrow">
     <h2>Join a party</h2>
+    <button class="btn primary big" id="join-quick"><b>Quickplay</b><small>Jump straight into a random open public game</small></button>
     <p class="muted" id="net-note"></p>
     <div id="party-list" class="party-list"></div>
     <div class="code-row">
@@ -120,9 +132,12 @@
       <label class="field" id="mode-field"><span>Game mode</span>
         <select id="game-mode"><option value="run">Co-op run (six rounds)</option><option value="duel">Duel Arena (1v1, random arena)</option></select>
       </label>
+      <label class="field" id="vis-field"><span>Party</span>
+        <select id="party-vis"><option value="pub">Public</option><option value="priv">Private</option></select>
+      </label>
       <label class="field check" id="cpu-field"><input type="checkbox" id="cpu-play"><span>CPU Run</span></label>
       <label class="field" id="round-field"><span>Round length</span>
-        <select id="round-len"><option value="10">10 minutes (standard)</option></select>
+        <select id="round-len"><option value="10">10 minutes (standard)</option><option value="0">Endless (use the altar to move on)</option></select>
       </label>
       <label class="field" id="diff-field"><span>Difficulty</span>
         <select id="difficulty"><option value="normal">Normal</option><option value="hard">Hard (win it to unlock a secret map)</option></select>

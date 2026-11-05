@@ -4,7 +4,7 @@
 // claw swipes, casting, hit flinches and a falling death.
 import * as THREE from 'three';
 import { lodSet, lodLevel } from './lod.js';
-import { MOBS, MOB_MIN_H } from './data.js';
+import { MOBS, MOB_MIN_H, MOB_ARMS, MOB_ARM_POOL } from './data.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { getTemplate, bonesOf } from './characters.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -59,6 +59,12 @@ export const MOB_LOOKS = {
   stinger: { file: 'veteran.glb', tposeArms: true, build: 'grey', design: 1, h: 1.8, hunch: 0.4, tele: [1, 0.9, 0.3] },
   brainer: { file: 'sorceress.glb', h: 2.0, hunch: 0.05, ghost: 0xff7ad0, float: 0.7, cast: true, orb: 0xff5ad0 },
   warden: { file: 'veteran.glb', tposeArms: true, build: 'grey', design: 3, h: 2.6, hunch: 0.15, bulk: 1.3, slam: true, tele: [0.3, 1, 0.9] },
+  // The rest of the Mixamo bodies (Nutty 2026-11-05). Their weapons come from MOB_ARM_POOL (data.js), one at random per mob.
+  shambler: { file: 'm12.glb', tposeArms: true, h: 1.85, hunch: 0.4, rough: 0.75 }, // #12 rotting man in jeans
+  deadcop: { file: 'm13.glb', tposeArms: true, h: 1.85, hunch: 0.35 }, // #13 zombie police officer
+  trooper: { file: 'm16.glb', tposeArms: true, h: 1.85, hunch: 0.12 }, // #16 helmeted infantryman
+  warmaiden: { file: 'm17.glb', tposeArms: true, h: 1.85, hunch: 0.1 }, // #17 armoured warrior woman
+  riot: { file: 'm21.glb', tposeArms: true, h: 1.9, hunch: 0.1, bulk: 1.05 }, // #21 SWAT trooper
   surgeon: { file: 'surgeon.glb', tposeArms: true, h: 2.6, hunch: 0.2, fly: true, wings: { membrane: 0xd8f0f4, bone: 0x3a4a50, span: 1.2, alpha: 0.75 } },
   wasp: { file: 'm29.glb', tposeArms: true, h: 2.8, hunch: 0.35, bulk: 0.95, fly: true, wings: { membrane: 0xffb830, bone: 0x2a1a00, span: 1.1, alpha: 0.8 } }, // #29 striped alien
   // The Hot Springs Valley's boss and the hidden space map's boss, The Visitor (boss rigs are boss + BOSSES index).
@@ -515,17 +521,25 @@ const GEAR_MATS = {
   stone: () => new THREE.MeshStandardMaterial({ color: 0x7c7466, roughness: 0.9 }),
   cloth: () => new THREE.MeshStandardMaterial({ color: 0x1d1830, roughness: 0.95, side: THREE.DoubleSide }),
   rag: () => new THREE.MeshStandardMaterial({ color: 0x3a2e24, roughness: 1, side: THREE.DoubleSide }),
+  gun: () => new THREE.MeshStandardMaterial({ color: 0x2b2d31, roughness: 0.42, metalness: 0.7 }),
+  poly: () => new THREE.MeshStandardMaterial({ color: 0x18191b, roughness: 0.7, metalness: 0.1 }),
+  rust: () => new THREE.MeshStandardMaterial({ color: 0x6b4a36, roughness: 0.75, metalness: 0.45 }),
+  iron: () => new THREE.MeshStandardMaterial({ color: 0x5c5f66, roughness: 0.5, metalness: 0.7 }),
+  plank: () => new THREE.MeshStandardMaterial({ color: 0x8a6a46, roughness: 0.9 }),
   glowO: () => new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff7a1a).multiplyScalar(2.2), toneMapped: false }),
   glowG: () => new THREE.MeshBasicMaterial({ color: new THREE.Color(0x8aff30).multiplyScalar(2.0), toneMapped: false }),
   glowC: () => new THREE.MeshBasicMaterial({ color: new THREE.Color(0x7dffb0).multiplyScalar(2.2), toneMapped: false }),
 };
-function buildGear(tpl, look) {
+// Weapons a mob carries from MOB_ARMS: on armed types the template leaves its old weapon out and each mob gets its own.
+const WEAPON_GEAR = new Set(['blade', 'dagger', 'sword', 'greatsword', 'club', 'rifle', ...Object.values(MOB_ARMS).map((a) => a.gear)]);
+const SHARED_MATS = {};
+function buildGear(tpl, look, names = look.gear, shared = null) {
   const scene = tpl.scene;
   scene.updateMatrixWorld(true);
   const bones = bonesOf(scene), s = look.h / 1.8;
   const toI = new THREE.Matrix4().makeScale(tpl.scale, tpl.scale, tpl.scale).multiply(new THREE.Matrix4().makeRotationY(tpl.yaw));
   const toT = toI.clone().invert();
-  const mats = {};
+  const mats = shared || {};
   const mat = (k) => mats[k] || (mats[k] = (() => { const m = GEAR_MATS[k](); if (m.isMeshStandardMaterial) addRim(m); return m; })());
   const bp = (n) => (bones.get(n) ? bones.get(n).getWorldPosition(V()).applyMatrix4(toI) : V());
   const ID = { u: V(0, 1, 0), f: V(0, 0, 1) };
@@ -657,12 +671,82 @@ function buildGear(tpl, look) {
       put('RightHand', 'wood', merge([new THREE.BoxGeometry(0.05, 0.5, 0.08).translate(0, 0.1, 0.02), new THREE.BoxGeometry(0.06, 0.26, 0.12).translate(0, -0.22, 0.03)]), [0, 0, 0.05], fr);
       put('RightHand', 'steel', merge([cyl(0.014, 0.014, 0.75, 8).translate(0, 0.72, 0.0), cyl(0.03, 0.03, 0.12, 8).translate(0, 0.28, 0.0), new THREE.BoxGeometry(0.02, 0.1, 0.03).translate(0.05, 0.22, 0.03)]), [0, 0, 0.05], fr);
     },
+    // ---- Mob weapons (MOB_ARMS). Guns point along -u: forward once the forearm is raised to hip-fire; stock along the forearm. ----
+    arifle() {
+      const fr = limb('RightHand', 'RightForeArm');
+      put('RightHand', 'gun', merge([new THREE.BoxGeometry(0.055, 0.5, 0.1).translate(0, -0.16, 0.03), cyl(0.016, 0.016, 0.42, 8).translate(0, -0.6, 0.05), new THREE.BoxGeometry(0.03, 0.06, 0.05).translate(0, -0.36, 0.1)]), [0, 0, 0.04], fr);
+      put('RightHand', 'poly', merge([new THREE.BoxGeometry(0.05, 0.08, 0.17).rotateX(0.25).translate(0, -0.24, -0.1), new THREE.BoxGeometry(0.045, 0.3, 0.08).translate(0, 0.2, 0.0), new THREE.BoxGeometry(0.04, 0.05, 0.1).rotateX(-0.3).translate(0, -0.02, -0.06)]), [0, 0, 0.04], fr);
+    },
+    smg() {
+      const fr = limb('RightHand', 'RightForeArm');
+      put('RightHand', 'gun', merge([new THREE.BoxGeometry(0.05, 0.34, 0.09).translate(0, -0.1, 0.03), cyl(0.014, 0.014, 0.16, 8).translate(0, -0.34, 0.05)]), [0, 0, 0.04], fr);
+      put('RightHand', 'poly', merge([new THREE.BoxGeometry(0.04, 0.06, 0.22).translate(0, -0.14, -0.13), new THREE.BoxGeometry(0.04, 0.05, 0.1).rotateX(-0.3).translate(0, 0.0, -0.06), new THREE.BoxGeometry(0.03, 0.2, 0.03).translate(0, 0.14, 0.04)]), [0, 0, 0.04], fr);
+    },
+    pistol() {
+      const fr = limb('RightHand', 'RightForeArm');
+      put('RightHand', 'gun', merge([new THREE.BoxGeometry(0.035, 0.22, 0.05).translate(0, -0.1, 0.06), cyl(0.009, 0.009, 0.03, 6).translate(0, -0.22, 0.07)]), [0, 0, 0.04], fr);
+      put('RightHand', 'poly', new THREE.BoxGeometry(0.034, 0.055, 0.12).rotateX(-0.25).translate(0, -0.02, 0.0), [0, 0, 0.04], fr);
+    },
+    shotgun() {
+      const fr = limb('RightHand', 'RightForeArm');
+      put('RightHand', 'gun', merge([cyl(0.02, 0.02, 0.62, 8).translate(0, -0.52, 0.06), cyl(0.015, 0.015, 0.5, 8).translate(0, -0.48, 0.025), new THREE.BoxGeometry(0.055, 0.28, 0.08).translate(0, -0.08, 0.04)]), [0, 0, 0.04], fr);
+      put('RightHand', 'wood', merge([cyl(0.032, 0.032, 0.2, 8).translate(0, -0.5, 0.03), new THREE.BoxGeometry(0.05, 0.34, 0.09).translate(0, 0.2, -0.01), new THREE.BoxGeometry(0.04, 0.06, 0.1).rotateX(-0.3).translate(0, 0.02, -0.05)]), [0, 0, 0.04], fr);
+    },
+    crossbow() {
+      const fr = limb('RightHand', 'RightForeArm');
+      const pts = []; for (let i = 0; i <= 8; i++) { const t = i / 8 * 2 - 1; pts.push(V(t * 0.36, -0.5 + 0.09 * (1 - t * t), 0.05)); }
+      put('RightHand', 'wood', merge([new THREE.BoxGeometry(0.05, 0.62, 0.06).translate(0, -0.22, 0.04), new THREE.BoxGeometry(0.045, 0.22, 0.08).translate(0, 0.16, 0.0)]), [0, 0, 0.04], fr);
+      put('RightHand', 'iron', merge([new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 12, 0.016, 6), new THREE.BoxGeometry(0.72, 0.006, 0.006).translate(0, -0.33, 0.06), new THREE.BoxGeometry(0.012, 0.36, 0.012).translate(0, -0.3, 0.08)]), [0, 0, 0.04], fr);
+    },
+    axe() {
+      const fr = limb('RightHand', 'RightForeArm');
+      put('RightHand', 'wood', cyl(0.024, 0.028, 0.95, 8).translate(0, 0.33, 0), [0, 0, 0.05], fr);
+      const sh = new THREE.Shape(); sh.moveTo(0, -0.05); sh.lineTo(0.08, -0.06); sh.quadraticCurveTo(0.22, -0.12, 0.25, -0.14); sh.quadraticCurveTo(0.28, 0.02, 0.25, 0.16); sh.quadraticCurveTo(0.2, 0.12, 0.08, 0.06); sh.lineTo(0, 0.05); sh.closePath();
+      const head = new THREE.ExtrudeGeometry(sh, { depth: 0.022, bevelEnabled: false }).translate(0, 0, -0.011).rotateY(-Math.PI / 2);
+      put('RightHand', 'steel', merge([head.translate(0, 0.74, 0.01), new THREE.BoxGeometry(0.05, 0.11, 0.06).translate(0, 0.74, -0.02)]), [0, 0, 0.05], fr);
+    },
+    mace() {
+      const fr = limb('RightHand', 'RightForeArm');
+      const spikes = []; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; spikes.push(cone(0.025, 0.09, 5).rotateZ(-Math.PI / 2).translate(0.1, 0, 0).rotateY(a).translate(0, 0.66 + (i % 2) * 0.05, 0)); }
+      put('RightHand', 'wood', cyl(0.024, 0.026, 0.7, 8).translate(0, 0.22, 0), [0, 0, 0.05], fr);
+      put('RightHand', 'iron', merge([ball(0.09).translate(0, 0.66, 0), ...spikes, cyl(0.035, 0.035, 0.05, 8).translate(0, -0.12, 0)]), [0, 0, 0.05], fr);
+    },
+    spear() {
+      const fr = limb('RightHand', 'RightForeArm');
+      put('RightHand', 'wood', cyl(0.022, 0.024, 2.0, 8).translate(0, 0.45, 0), [0, 0, 0.05], fr);
+      put('RightHand', 'steel', merge([cone(0.045, 0.3, 4).rotateY(Math.PI / 4).scale(1, 1, 0.35).translate(0, 1.6, 0), cyl(0.03, 0.03, 0.08, 8).translate(0, 1.44, 0)]), [0, 0, 0.05], fr);
+    },
+    pipe() {
+      const fr = limb('RightHand', 'RightForeArm');
+      put('RightHand', 'rust', merge([cyl(0.026, 0.026, 0.9, 8).translate(0, 0.33, 0), cyl(0.036, 0.036, 0.08, 8).translate(0, 0.78, 0), cyl(0.026, 0.026, 0.14, 8).rotateZ(Math.PI / 2).translate(0.07, 0.8, 0)]), [0, 0, 0.05], fr);
+    },
+    cleaver() {
+      const fr = limb('RightHand', 'RightForeArm');
+      put('RightHand', 'wood', new THREE.BoxGeometry(0.035, 0.16, 0.03).translate(0, 0.02, 0), [0, 0, 0.05], fr);
+      put('RightHand', 'steel', new THREE.BoxGeometry(0.13, 0.28, 0.008).translate(0.045, 0.24, 0), [0, 0, 0.05], fr);
+    },
+    plank() {
+      const fr = limb('RightHand', 'RightForeArm');
+      const nails = []; for (let i = 0; i < 5; i++) nails.push(cyl(0.004, 0.004, 0.12, 4).rotateX(Math.PI / 2).translate(((i % 2) - 0.5) * 0.05, 0.55 + i * 0.07, 0.04));
+      put('RightHand', 'plank', new THREE.BoxGeometry(0.1, 0.95, 0.03).translate(0, 0.38, 0), [0, 0, 0.05], fr);
+      put('RightHand', 'iron', merge(nails), [0, 0, 0.05], fr);
+    },
+    machete() {
+      const fr = limb('RightHand', 'RightForeArm');
+      put('RightHand', 'poly', new THREE.BoxGeometry(0.035, 0.15, 0.03).translate(0, 0.02, 0), [0, 0, 0.05], fr);
+      put('RightHand', 'steel', merge([new THREE.BoxGeometry(0.065, 0.6, 0.008).translate(0.01, 0.4, 0), cone(0.035, 0.1, 3).scale(1, 1, 0.2).translate(0.015, 0.74, 0)]), [0, 0, 0.05], fr);
+    },
+    shovel() {
+      const fr = limb('RightHand', 'RightForeArm');
+      put('RightHand', 'wood', merge([cyl(0.022, 0.022, 1.1, 8).translate(0, 0.35, 0), new THREE.BoxGeometry(0.14, 0.03, 0.03).translate(0, -0.2, 0)]), [0, 0, 0.05], fr);
+      put('RightHand', 'rust', merge([new THREE.BoxGeometry(0.2, 0.28, 0.012).translate(0, 1.04, 0.0), cyl(0.03, 0.03, 0.1, 8).translate(0, 0.88, 0)]), [0, 0, 0.05], fr);
+    },
     // Ogre Smasher: stone fists.
     fists() {
       for (const sd of ['Left', 'Right']) put(sd + 'Hand', 'stone', merge([ball(0.12), ball(0.06).translate(0.07, 0.09, 0.07), ball(0.06).translate(-0.07, 0.09, 0.07), ball(0.06).translate(0, 0.1, -0.07)]), [0, 0, 0]);
     },
   };
-  for (const n of look.gear) if (G[n]) G[n]();
+  for (const n of names) if (G[n]) G[n]();
 }
 
 const tplCache = new Map();
@@ -672,7 +756,7 @@ function mobTemplate(kind) {
   if (!look) return null;
   const def = { id: 'mob_' + kind, file: look.file, tposeArms: look.tposeArms, build: look.build, design: look.design, body: look.body, lizard: look.lizard, eye: look.eye, height: look.h };
   const tpl = getTemplate(def);
-  if (tpl) { if (look.rot) rotDress(tpl, look); dress(tpl, look); if (look.gear) buildGear(tpl, look); collapse(tpl.scene); }
+  if (tpl) { if (look.rot) rotDress(tpl, look); dress(tpl, look); if (look.gear) buildGear(tpl, look, MOB_ARM_POOL[kind] ? look.gear.filter((n) => !WEAPON_GEAR.has(n)) : look.gear); collapse(tpl.scene); }
   tplCache.set(kind, tpl);
   return tpl;
 }
@@ -715,12 +799,15 @@ let _wingGeo = {};
 export class MobRig {
   constructor(kind) {
     this.kind = kind;
-    this.look = MOB_LOOKS[kind] || {};
-    const tpl = mobTemplate(kind);
+    // 'type@weapon': an armed mob (MOB_ARMS). Same body template; the weapon is glued to this mob's own hand bone.
+    const [kb, arm] = kind.split('@'), A = arm && MOB_ARMS[arm];
+    this.look = A ? { ...MOB_LOOKS[kb], aim: !!A.ranged } : (MOB_LOOKS[kb] || {});
+    const tpl = mobTemplate(kb);
     this.root = new THREE.Group();
     this.ok = !!tpl;
     if (!tpl) return;
     this.model = SkeletonUtils.clone(tpl.scene);
+    if (A) buildGear({ scene: this.model, scale: tpl.scale, yaw: tpl.yaw }, this.look, [A.gear], SHARED_MATS);
     this.model.rotation.y = tpl.yaw;
     const bulk = this.look.bulk || 1;
     this.model.scale.set(tpl.scale * bulk, tpl.scale, tpl.scale * bulk);
@@ -754,7 +841,7 @@ export class MobRig {
     this.pP = 0; this.pB = 0;
     this.tail = []; this.model.traverse((o) => { if (/^tail_\d+$/.test(o.name)) this.tail[+o.name.slice(5)] = o; });
     if (this.tail.length) { this.model.userData.tail = this.tail; this.model.userData.tailBase = this.tail.map((s) => s.rotation.x); }
-    this.atkDur = this.look.slam ? 1.25 : this.look.cast ? 0.7 : 0.5; // slams land near the 1.2 s ground telegraph
+    this.atkDur = this.look.slam ? 1.25 : this.look.cast ? 0.7 : this.look.aim ? 0.35 : 0.5; // slams land near the 1.2 s ground telegraph
     this.hover = !!(this.look.fly || this.look.float);
     const g = (k) => this.b.get(k) || null;
     this.bn = { sp: g('Spine'), sp1: g('Spine1'), sp2: g('Spine2'), neck: g('Neck'), head: g('Head'), lsh: g('LeftShoulder'), rsh: g('RightShoulder'),
@@ -950,6 +1037,10 @@ export class MobRig {
         pulse = Math.sin(Math.PI * ss(u, 0.48, 0.66));
         sp2 = -0.25 * castLift * (1 - ss(u, 0.45, 0.55)) + 0.3 * pulse; headP = 0.12 * pulse;
         lunge = this.h * (-0.04 * castLift + 0.08 * pulse);
+      } else if (L.aim) {
+        // A shot: the gun kicks up and back, the shoulders take it.
+        const k = Math.sin(Math.PI * ss(u, 0, 0.35)) * (1 - ss(u, 0.35, 1));
+        sp2 = -0.08 * k; headP = -0.05 * k; lunge = -this.h * 0.03 * k; foreBend = k;
       } else {
         // Wind up to the right (weight back), strike across the body, overshoot, recover.
         const wind = ss(u, 0, 0.3), rake = ss(u, 0.3, 0.46), back = ss(u, 0.52, 1);
@@ -992,9 +1083,15 @@ export class MobRig {
         const lift = castLift, ang = -1.35 * lift - 0.35 * pulse, yw = 0.35 * lift;
         rv(N.lua, ang, -yw, 0); rv(N.rua, ang, yw, 0);
         rv(N.lfa, -0.3 * lift, 0, 0); rv(N.rfa, -0.3 * lift, 0, 0);
-      } else {
+      } else if (!L.aim) {
         rv(N.rua, -armRaise, armSweep, 0); rv(N.rfa, foreBend, 0, 0); rv(N.lua, -armRaise * 0.5, armSweep * 0.4, 0);
       }
+    }
+    // Shooters hold their gun at the hip, pointed ahead, the other hand on the fore-grip; foreBend carries the recoil.
+    if (L.aim && !frozen) {
+      const k = u >= 0 ? foreBend : 0;
+      rv(N.rua, -0.3 - 0.15 * k, 0.2, 0); rv(N.rfa, -1.45 - 0.3 * k, 0, 0);
+      rv(N.lua, -0.7, -0.5, 0); rv(N.lfa, -1.25, 0, 0);
     }
     // Zombies: arms hang out in front, uneven and swaying (one higher, one drooping), the head lolls to one side, and the gait is a
     // limp: one leg stiff and dragging, a hitch and a hip drop on every step on it, the whole body lurching.

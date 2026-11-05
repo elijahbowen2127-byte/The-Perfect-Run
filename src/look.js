@@ -148,7 +148,7 @@ const GRADE = {
   dunes: { exp: 0.84, env: 0.8, vig: 0.3, sat: 1.2, tint: [1.03, 1.0, 0.95], bloom: 0.28 },
   frost: { exp: 0.84, env: 0.85, vig: 0.28, sat: 1.1, tint: [0.99, 1.0, 1.04], bloom: 0.3 },
   springs: { exp: 0.96, env: 0.85, vig: 0.3, sat: 1.18, tint: [1.02, 1.03, 0.98], bloom: 0.4 },
-  space: { exp: 1.35, env: 1.1, vig: 0.6, sat: 1.12, tint: [1.04, 0.97, 1.02], bloom: 0.6 },
+  space: { exp: 1.35, env: 1.1, vig: 0.6, sat: 0.95, tint: [0.98, 1.0, 1.04], bloom: 0.6 }, // cool and grey: the Moon (Nutty 2026-11-05: too brown)
 };
 
 // OutputPass with the grade folded in (vignette, saturation, tint run in linear HDR just before tone mapping),

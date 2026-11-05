@@ -1,6 +1,6 @@
 // The local player: movement, weapons, abilities, damage, beds and death.
 import * as THREE from 'three';
-import { CONFIG, DUEL, GRAV, HEAL, CLASSES, CLASS_BY_ID, WEAPONS, WEAPON_BY_ID, DASH, freshStats, XP, puInfo } from './data.js';
+import { CONFIG, DUEL, GRAV, HEAL, CLASSES, CLASS_BY_ID, WEAPONS, WEAPON_BY_ID, DASH, freshStats, XP, puInfo, ZONE_K } from './data.js';
 import { makeHumanoid } from './models.js';
 import { animateWeapon, boltProto } from './weapons.js';
 import { launchArrow } from './longbow.js';
@@ -380,10 +380,10 @@ export class LocalPlayer {
     const hits = g.rayHit(origin, dir, reach, wp.pierce || 1);
     const end = g.groundRay(origin, dir, reach);
     for (const h of hits) {
-      const dmg = wp.dmg * this.stats.dmg * (h.head ? 1.5 : 1);
+      const dmg = wp.dmg * this.stats.dmg * (ZONE_K[h.zone] || 1);
       this.mgAcc = (this.mgAcc || 0) + dmg;
       const show = n % 3 === 0;
-      g.damage(h.t, dmg, { at: h.point, head: h.head, silent: !show, silentNum: !show, shown: this.mgAcc });
+      g.damage(h.t, dmg, { at: h.point, zone: h.zone, head: h.head, silent: !show, silentNum: !show, shown: this.mgAcc });
       if (show) this.mgAcc = 0;
       if (n % 2 === 0) g.fx.laserHit([h.point.x, h.point.y, h.point.z]);
     }
@@ -447,13 +447,13 @@ export class LocalPlayer {
         g.el.healAura([this.pos.x, this.pos.y, this.pos.z], 0.4);
       } else if (hits.length) {
         for (const h of hits) {
-          const dmg = wp.dmg * this.stats.dmg * (h.head ? 1.5 : 1);
+          const dmg = wp.dmg * this.stats.dmg * (ZONE_K[h.zone] || 1);
           if (wp.ice) { this.iceHit(h.t, dmg, wp.ice, h.point, h.head); continue; }
-          if (!rapid) { g.damage(h.t, dmg, { at: h.point, head: h.head }); continue; }
+          if (!rapid) { g.damage(h.t, dmg, { at: h.point, zone: h.zone, head: h.head }); continue; }
           // Minigun and Pulse Cannon: every bullet counts on the host, but only every third makes a number, blood and a tick.
           this.mgAcc = (this.mgAcc || 0) + dmg;
           const show = n % 3 === 0;
-          g.damage(h.t, dmg, { at: h.point, head: h.head, silent: !show, silentNum: !show, shown: this.mgAcc });
+          g.damage(h.t, dmg, { at: h.point, zone: h.zone, head: h.head, silent: !show, silentNum: !show, shown: this.mgAcc });
           if (show) this.mgAcc = 0;
         }
         end = hits[hits.length - 1].point;

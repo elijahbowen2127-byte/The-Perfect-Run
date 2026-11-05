@@ -12,7 +12,7 @@ import { World } from './world.js';
 import { LocalPlayer, flashSize } from './player.js';
 import { HostSim, THERMES } from './sim.js';
 import { RemotePlayerView, MobView, BossView, DemonView, NpcView } from './views.js';
-import { CONFIG, CLASSES, CLASS_BY_ID, WEAPONS, WEAPON_BY_ID, BIOMES, BOSSES, NPCS, BLESSINGS, POWERUPS, ELEMENTS, CRATE_POOL, DUEL, DUEL_BIOMES, GRAV, HEAL, DUEL_PICKS, puInfo, levelOffer, rerollOffer, XP, MOB_TYPES, MOBS, stageIdx, bossIdx, seedFlags, MINI, ELITE, TIER, loadoutFull } from './data.js';
+import { CONFIG, CLASSES, CLASS_BY_ID, WEAPONS, WEAPON_BY_ID, BIOMES, BOSSES, NPCS, BLESSINGS, POWERUPS, ELEMENTS, CRATE_POOL, DUEL, DUEL_BIOMES, GRAV, HEAL, DUEL_PICKS, puInfo, levelOffer, rerollOffer, XP, MOB_TYPES, MOBS, stageIdx, bossIdx, seedFlags, MINI, ELITE, TIER, loadoutFull, zoneOf } from './data.js';
 import { SoloParty, RoomParty, RoomLobby, BCParty, BCLobby, PeerParty, getRoom, makeCode } from './net.js';
 import { Audio } from './audio.js';
 import { MenuScene } from './menu.js';
@@ -58,7 +58,7 @@ export class Game {
     this.pad = opts.pad === 'kb' ? new KeyPad() : new PadInput(opts.pad === undefined ? 'any' : opts.pad);
     this.hitSrc = new Map();
     this.settings = Object.assign({ quality: 'high', sens: 1, vol: 0.6, name: this.seat === 2 ? 'Player 2' : 'Runner' + Math.floor(Math.random() * 900 + 100), fps: false, roundLen: 10, hard: false, speed: 1, view: 'third', layout: 'ds', sensAds: 1, invertY: false, music: true, musicVol: 1, sfx: true, fov: 70, shake: true, dmgNums: true }, LS.get(this.lsKey('settings'), {}));
-    this.settings.roundLen = 10; // rounds always run the full 10 minutes
+    this.settings.roundLen = this.settings.roundLen === 0 ? 0 : 10; // 10-minute rounds, or 0 = Endless (Nutty 2026-11-05)
     if (this.isBot) Object.assign(this.settings, { name: 'CPU', vol: 0, view: 'first' });
     // Couch co-op runs two full renderers on one screen: each seat is capped at medium quality and
     // starts at a lower resolution scale that the adaptive logic in trackPerf raises when there is headroom.
@@ -395,7 +395,8 @@ export class Game {
     this.enterLobby();
   }
 
-  async createParty() {
+  async createParty(pub = true) {
+    this.partyPublic = pub !== false;
     const code = makeCode();
     this.partyCode = code;
     this.isHost = true;
@@ -439,7 +440,8 @@ export class Game {
       if (this.mode === 'lobby') this.ui.renderLobby();
       if (this.isHost && this.lobby && this.partyCode) {
         const n = this.party.peers().length;
-        this.lobby.advertise(this.mode === 'lobby' ? { code: this.partyCode, host: this.myName, n } : null);
+        // Private parties are never listed: friends join with the invite link or the code.
+        this.lobby.advertise(this.mode === 'lobby' && this.partyPublic !== false ? { code: this.partyCode, host: this.myName, n, dm: this.duelMode ? 1 : 0, pub: 1 } : null);
       }
     }, 500);
   }
@@ -480,7 +482,19 @@ export class Game {
 
   setReady(r) { this.ready = r; this.party.set({ rdy: r ? 1 : 0 }); }
 
-  lbInfo() { return { code: this.partyCode, rl: this.settings.roundLen, dm: this.duelMode ? 1 : 0, hd: this.settings.hard ? 1 : 0 }; }
+  lbInfo() { return { code: this.partyCode, rl: this.settings.roundLen, dm: this.duelMode ? 1 : 0, hd: this.settings.hard ? 1 : 0, pub: this.partyPublic === false ? 0 : 1 }; }
+  setPublic(on) { this.partyPublic = !!on; if (this.isHost && this.party) this.party.set({ lb: this.lbInfo() }); }
+
+  // Quickplay: join a random open public party (co-op first, not full); if none is open, host a public one for others to find.
+  async quickplay() {
+    const open = (this.lobby ? this.lobby.parties() : []).filter((p) => !p.me && p.code && p.pub !== 0 && (p.n || 1) < 5);
+    const coop = open.filter((p) => !p.dm);
+    const pool = coop.length ? coop : open;
+    if (pool.length) { const p = pool[Math.floor(Math.random() * pool.length)]; await this.joinParty(p.code); return 'joined'; }
+    this.duelMode = false;
+    await this.createParty(true);
+    return 'created';
+  }
   setHard(on) { this.settings.hard = !!on; this.saveSettings(); if (this.isHost && this.party) this.party.set({ lb: this.lbInfo() }); }
   setDuelMode(on) {
     this.duelMode = !!on;
@@ -488,7 +502,7 @@ export class Game {
   }
 
   setRoundLen(min) {
-    this.settings.roundLen = 10; // no endless mode: nobody leaves a round before the clock runs out
+    this.settings.roundLen = +min === 0 ? 0 : 10; // 10 minutes, or 0 = Endless: the round ends when the altar is used
     this.saveSettings();
     this.party.set({ lb: this.lbInfo() });
   }
@@ -530,7 +544,7 @@ export class Game {
       const n = this.lobbyMembers().length;
       if (n !== 2) { this.ui.toast(n < 2 ? 'A duel needs a second fighter' : 'A duel is for exactly two players', 'bad'); return; }
       this.sim.startDuel();
-    } else this.sim.startRun(10 * 60, { space: Unlocks.has('space'), hard: !!this.settings.hard });
+    } else this.sim.startRun(this.settings.roundLen === 0 ? 0 : 10 * 60, { space: Unlocks.has('space'), hard: !!this.settings.hard });
     this.sim.lastPlayers = this.lobbyMembers().map((p) => ({ id: p.id }));
     const k = this.party && this.party.kind;
     SPEED.n = 1; // every run starts at normal speed; T or D-pad down cycles it once Game speed is unlocked
@@ -968,10 +982,10 @@ export class Game {
       }
       case 'p': {
         const [, , x, y, z, vx, vy, vz, dmg, style] = e;
-        const col = style === 1 && this.views.boss ? new THREE.Color(this.views.boss.def.glow) : new THREE.Color(style === 2 ? 0xffc860 : 0x7dff3a); // 2: archer arrow
+        const col = style === 1 && this.views.boss ? new THREE.Color(this.views.boss.def.glow) : new THREE.Color(style === 3 ? 0xfff2c0 : style === 2 ? 0xffc860 : 0x7dff3a); // 2: archer arrow, 3: a soldier's bullet
         let hit = false, back = false;
         this.el.orb([x / 10, y / 10, z / 10], [vx / 10, vy / 10, vz / 10], {
-          color: [col.r, col.g, col.b], size: style === 1 ? 1.5 : style === 2 ? 0.95 : 1.15, dur: 4,
+          color: [col.r, col.g, col.b], size: style === 1 ? 1.5 : style === 2 ? 0.95 : style === 3 ? 0.5 : 1.15, dur: style === 3 ? 1.2 : 4,
           onUpdate: (pos, vel) => {
             if (hit || !p.alive) return;
             if (back) {
@@ -1488,7 +1502,8 @@ export class Game {
       const y = origin.y + dir.y * th;
       if (y < t.y - 0.1 || y > t.y + t.h + 0.15) continue;
       const point = new THREE.Vector3(origin.x + dir.x * th, y, origin.z + dir.z * th);
-      res.push({ t, dist: th, point, head: t.kind === 'mob' && y > t.y + t.h * 0.8 });
+      const zone = t.kind === 'demon' ? 'body' : zoneOf(t, y, d2);
+      res.push({ t, dist: th, point, zone, head: zone === 'head' });
     }
     res.sort((a, b) => a.dist - b.dist);
     return res.slice(0, pierce);
@@ -1533,7 +1548,7 @@ export class Game {
     if (t.kind === 'demon') { this.ui.damageNumber(this.project(pos), 'IMMUNE', 'immune'); return; }
     // Physical power-ups: Killer Instinct crits, Executioner finishes the wounded, Heavy Rounds shove.
     if (!o.chain && t.kind !== 'player') {
-      if (p.stats.crit && Math.random() < p.stats.crit) { dmg *= 2; o = { ...o, head: true }; }
+      if (p.stats.crit && Math.random() < p.stats.crit) { dmg *= 2; o = { ...o, crit: true }; }
       if (p.stats.execute && t.view && t.view.hp < 0.34) dmg *= 1 + p.stats.execute;
       if (p.stats.kb && !o.kx && !o.kz) { const dx = t.x - p.pos.x, dz = t.z - p.pos.z, dd = Math.hypot(dx, dz) || 1; o = { ...o, kx: dx / dd * p.stats.kb, kz: dz / dd * p.stats.kb }; }
     }
@@ -1562,7 +1577,7 @@ export class Game {
     const eff = t.kind === 'player' ? Math.max(1, Math.round(dmg * DUEL.pvp)) : dmg;
     p.damageDealt += dmg;
     if (p.stats.lifesteal) p.heal(eff * p.stats.lifesteal);
-    if (!o.silentNum && !o.silent) this.ui.damageNumber(this.project(pos), o.shown != null ? Math.round(o.shown * (eff / (dmg || 1))) : eff, o.head ? 'crit' : t.kind === 'boss' ? 'boss' : '');
+    if (!o.silentNum && !o.silent) this.ui.damageNumber(this.project(pos), o.shown != null ? Math.round(o.shown * (eff / (dmg || 1))) : eff, o.head ? 'crit' : o.crit ? 'pcrit' : o.zone === 'arm' || o.zone === 'leg' ? 'limb' : t.kind === 'boss' ? 'boss' : '');
     if (!o.silent) { this.ui.hitmarker(false); this.audio.play('hit'); }
     if (o.at && !o.silent) this.fx.blood(Array.isArray(o.at) ? o.at : [o.at.x, o.at.y, o.at.z], t.kind === 'boss' ? [0.3, 0.2, 0.05] : [0.35, 0.05, 0.08]);
     // Local prediction: dim the bar right away.

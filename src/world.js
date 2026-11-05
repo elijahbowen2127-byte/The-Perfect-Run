@@ -436,7 +436,7 @@ export class World {
       volcanic: { tufts: [], pebbles: [340, 640, 1000], tint: [0.2, 0.17, 0.16] },
       abyss: { tufts: [], pebbles: [200, 380, 600], tint: [0.22, 0.18, 0.3], crystals: [60, 140, 240] },
       springs: { tufts: [['grass', [0.9, 1.7], [1600, 3600, 5400]], ['fern', [0.8, 1.4], [120, 300, 460]]], pebbles: [60, 120, 200], tint: [0.5, 0.54, 0.44] },
-      space: { tufts: [], pebbles: [300, 560, 880], tint: [0.34, 0.2, 0.24], crystals: [50, 120, 200] },
+      space: { tufts: [], pebbles: [400, 700, 1000], tint: [0.46, 0.46, 0.48], crystals: [0, 0, 0] },
       waterfall: { tufts: [['grass', [0.9, 1.7], [1600, 3600, 5400]], ['fern', [0.8, 1.4], [140, 340, 520]]], pebbles: [80, 160, 260], tint: [0.5, 0.54, 0.44] },
       clearing: { tufts: [['grass', [0.9, 1.6], [1200, 3000, 4600]], ['fern', [1.1, 1.9], [160, 440, 720]]], pebbles: [80, 160, 280], tint: [0.5, 0.5, 0.44] },
       volcano: { tufts: [], pebbles: [360, 680, 1050], tint: [0.18, 0.15, 0.14] },

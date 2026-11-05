@@ -31,6 +31,8 @@ export const CHARACTERS = [
   { id: 'ironwood', name: 'Ironwood', role: 'Super Soldier', blurb: 'Moss-green power armour, a visor that never blinks and exactly one plan: stand in front of everyone else.', file: 'soldier.glb', build: 'ironwood', height: 1.9, bulk: 1.1, stats: { hp: 1.2, speed: 0.96 } },
   { id: 'gigachad', name: 'Giga Tyrone', role: 'Absolute Unit', blurb: 'Jaw first, questions never. Tyrone has won every staring contest, handshake and argument with gravity, and he never skips leg day.', file: 'xbot.glb', build: 'chad', armPose: { out: 0.2, fwd: 0.14, bend: 0.3 }, height: 1.96, stats: { hp: 1.15, speed: 1.0 } },
   { id: 'ragmon', name: 'Ragmon', role: 'Blank', blurb: 'A faceless figure with no past and nothing to hide behind. Nobody knows what Ragmon is. Ragmon does not know either.', file: 'ragmon.glb', tposeArms: true, height: 1.8, stats: { hp: 1.0, speed: 1.03 } }, // Nutty 2026-11-05: Mixamo #27
+  { id: 'kratia', name: 'Kratia', role: 'Duelist', blurb: 'A red combat suit, silver hair and no patience for anyone slower than her. She hits first and keeps moving.', file: 'kratia.glb', tposeArms: true, height: 1.75, stats: { hp: 0.95, speed: 1.08 } }, // Nutty 2026-11-05: Mixamo #22
+  { id: 'selena', name: 'Selena', role: 'Rogue', blurb: 'Hooded, cloaked in black leather and gone before the bodies hit the floor. Quiet, quick and hard to pin down.', file: 'selena.glb', tposeArms: true, height: 1.72, stats: { hp: 0.92, speed: 1.1 } }, // Nutty 2026-11-05: Mixamo #15
   { id: 'knight', name: 'Sir Aldric', role: 'Knight', blurb: 'Full plate, a great helm and a vow he takes far too seriously. Slow, loud and very hard to put down.', file: 'aldric.glb', tposeArms: true, height: 1.92, bulk: 0.95, stats: { hp: 1.25, speed: 0.92 } }, // Nutty 2026-11-05: Mixamo #1 body, same name (was the hand-built knight on veteran.glb)
   { id: 'ninja', name: 'Kiri', role: 'Ninja', blurb: 'Black shinobi shozoku, a short blade on the back and no footsteps worth hearing. Fast, quiet, fragile.', file: 'veteran.glb', tposeArms: true, build: 'ninja', height: 1.74, bulk: 0.96, stats: { hp: 0.9, speed: 1.12 } },
   { id: 'corsair', name: 'Captain Saltvane', role: 'Pirate Captain', blurb: 'Tricorne, frock coat, one good eye and a parrot that swears in four languages. Yo ho.', file: 'veteran.glb', tposeArms: true, build: 'corsair', height: 1.84, stats: { hp: 1.08, speed: 0.98 } },
@@ -752,7 +754,7 @@ export function setCharacterScale(model, k) {
 }
 
 // Footstep flavour per character (see Audio.footstep).
-export const STEP_KIND = { ragmon: 'soft', veteran: 'boot', ironwood: 'heavy', gigachad: 'heavy', bonelord: 'bone', scalefang: 'claw', nyx: 'soft', quill: 'soft', knight: 'heavy', ninja: 'soft', corsair: 'boot', grey: 'soft' };
+export const STEP_KIND = { ragmon: 'soft', kratia: 'boot', selena: 'soft', veteran: 'boot', ironwood: 'heavy', gigachad: 'heavy', bonelord: 'bone', scalefang: 'claw', nyx: 'soft', quill: 'soft', knight: 'heavy', ninja: 'soft', corsair: 'boot', grey: 'soft' };
 
 // Distance-driven steps: call every frame with the speed and whether the body is on the ground.
 // Returns the new stride accumulator; plays at most one step per call.

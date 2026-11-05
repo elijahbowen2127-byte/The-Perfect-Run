@@ -1,7 +1,7 @@
 // Host-authoritative simulation: enemies, bosses, the Demon Huntress, bought
 // NPCs, crates, the round clock and phase changes. Only the host runs this;
 // it reads every player's presence and writes the world snapshot `w`.
-import { CONFIG, MOBS, MOB_TYPES, BOSSES, BOSS_HP, BOSS_GROW, BOSS_HP_ROUND, BOSS_DMG_ROUND, bossIdx, BIOMES, STAGE_MOBS, STAGE_FLY, FLYERS, DEMON, NPCS, NPC_TYPES, stageIdx, SEED_SPACE, SEED_HARD, seedFlags, MINI, ELITE, DUEL, DUEL_BIOMES, GRAV } from './data.js';
+import { CONFIG, MOBS, MOB_TYPES, BOSSES, BOSS_HP, BOSS_GROW, BOSS_HP_ROUND, BOSS_DMG_ROUND, bossIdx, BIOMES, STAGE_MOBS, STAGE_FLY, FLYERS, DEMON, NPCS, NPC_TYPES, stageIdx, SEED_SPACE, SEED_HARD, seedFlags, MINI, ELITE, DUEL, DUEL_BIOMES, GRAV, armedBase, pickArm } from './data.js';
 
 const q10 = (v) => Math.round(v * 10);
 const EVENT_TTL = 1.6;
@@ -62,7 +62,7 @@ export class HostSim {
       const base = MOBS[type];
       const maxHp = base.hp * s.hpScale();
       const mini = m[9] ? s.miniHpMul() : 1;
-      const nm = s.newMob(type, m[2] / 10, m[3] / 10, m[0], maxHp * mini * (m[4] / 100));
+      const nm = s.newMob(type, m[2] / 10, m[3] / 10, m[0], maxHp * mini * (m[4] / 100), m[11] | 0);
       if (m[9]) { nm.mini = 1; nm.maxHp = maxHp * mini; }
       if (m[8] != null) nm.fy = m[8] / 10;
       if (m[10]) { s.makeElite(nm, m[10]); nm.hp = nm.maxHp * (m[4] / 100); }
@@ -341,13 +341,15 @@ export class HostSim {
   }
 
   // ---------- spawning ----------
-  newMob(type, x, z, id, hp) {
-    const base = MOBS[type];
+  newMob(type, x, z, id, hp, wi) {
+    // Armed mobs (MOB_ARM_POOL) pick a weapon from their class when they appear; it changes reach, damage and whether they shoot.
+    if (wi === undefined) wi = pickArm(type);
+    const base = armedBase(type, wi);
     let maxHp = base.hp * this.hpScale();
     // Toughness follows size (the player is 1.8 m): enemies about the player's size go down fast, bigger ones soak far more hits.
     if (id === undefined && hp === undefined) maxHp *= base.height <= 2.35 ? 0.35 : (base.height > 3.2 ? 1.6 : 1) * 1.2;
     return {
-      id: id ?? this.nextId++, type, ti: MOB_TYPES.indexOf(type), x, z, maxHp, hp: hp ?? maxHp,
+      id: id ?? this.nextId++, type, ti: MOB_TYPES.indexOf(type), wi, x, z, maxHp, hp: hp ?? maxHp,
       atk: Math.random() * base.rate, slow: 0, frozen: 0, burn: 0, stag: 0, kx: 0, kz: 0, yaw: 0, anim: 0,
       fy: base.fly ? 7 + Math.random() * 2 : 0, mode: 'orbit', modeT: 0,
       speed: base.speed * (0.9 + Math.random() * 0.2) * (1 + this.round * 0.04), base, strafe: Math.random() < 0.5 ? 1 : -1,
@@ -600,7 +602,7 @@ export class HostSim {
       this.ev('ek', m.id, killer, q10(m.x), q10(m.z), m.el);
       if (m.el === 1) this.ev('bx', q10(m.x), q10(m.z), Math.round(ELITE.blast.r * 10), Math.round(ELITE.blast.d * 100), Math.round(ELITE.blast.dmg * this.dmgScale()));
       if (m.el === 4) for (let i = 0; i < 2; i++) {
-        const c = this.newMob(m.type, m.x + (i ? 1.2 : -1.2), m.z + (i ? 0.4 : -0.4));
+        const c = this.newMob(m.type, m.x + (i ? 1.2 : -1.2), m.z + (i ? 0.4 : -0.4), undefined, undefined, m.wi);
         c.maxHp *= ELITE.splitHp; c.hp = c.maxHp; c.roam = 0; c.speed *= 1.1; c.base = m.base;
         [c.x, c.z] = this.world.collide(c.x, c.z, c.base.radius);
         this.mobs.set(c.id, c);
@@ -715,7 +717,7 @@ export class HostSim {
       if (this.roundLen > 0) this.tl = Math.max(0, this.tl - dt);
       // After the 10 minute mark Death comes for the party, every round. The altar is the way out.
       if (this.space && this.tl <= 0) { this.startBoss(); this.ev('msg', 'The Visitor has landed'); }
-      else if (!this.space && !this.deathDone && !this.demon && this.rt >= DEMON.arrive) {
+      else if (!this.space && this.roundLen > 0 && !this.deathDone && !this.demon && this.rt >= DEMON.arrive) { // Endless rounds: Death never comes
         this.spawnDemon();
         this.ev('msg', 'Time is up. Death has come for you');
         this.ev('demon');
@@ -1315,7 +1317,7 @@ export class HostSim {
     for (const x of this.mobs.values()) {
       // 1 frozen, 2 burning, 4 slowed, 8 winding up an ability.
       const flags = (x.frozen > 0 ? 1 : 0) | (x.burn > 0 ? 2 : 0) | (x.slow > 0 ? 4 : 0) | (x.fuse > 0 || x.mode === 'crouch' || x.mode === 'cast' || x.mode === 'slam' || (x.base.pstyle && x.atk > 0 && x.atk < 0.5) ? 8 : 0) | (x.stag > 0 ? 32 : 0) | (x.shield > 0 ? 64 : 0);
-      m.push([x.id, x.ti, q10(x.x), q10(x.z), Math.max(1, Math.round((x.hp / x.maxHp) * 100)), flags, Math.round(x.yaw * 10), Math.round(x.anim * 9), Math.round((x.fy || 0) * 10), x.mini ? 1 : 0, x.el | 0]);
+      m.push([x.id, x.ti, q10(x.x), q10(x.z), Math.max(1, Math.round((x.hp / x.maxHp) * 100)), flags, Math.round(x.yaw * 10), Math.round(x.anim * 9), Math.round((x.fy || 0) * 10), x.mini ? 1 : 0, x.el | 0, x.wi | 0]);
     }
     const n = [];
     for (const x of this.npcs.values()) n.push([x.id, x.ti, x.owner, q10(x.x), q10(x.z), Math.max(1, Math.round((x.hp / x.maxHp) * 100)), Math.round(x.yaw * 10), Math.round(x.anim * 9), x.moving ? 1 : 0]);

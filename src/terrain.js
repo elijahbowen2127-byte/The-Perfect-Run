@@ -12,7 +12,7 @@ uniform sampler2D tA, tB, tS, tR, nA, nB, nS, nR, tMacro;
 uniform vec4 uInv, uRough, uEmit;
 uniform vec3 uTA, uTB, uTS, uTR;
 uniform vec2 uSlope;
-uniform float uT, uSpark, uNS;
+uniform float uT, uSpark, uNS, uDesat;
 uniform vec3 uCrackCol;
 varying vec4 vSplat;
 varying vec3 vWP;
@@ -64,6 +64,7 @@ const MAP_BLOCK = /* glsl */ `
   ww /= (ww.x + ww.y + ww.z + ww.w);
   vec3 terrAlb = ww.x * cA.rgb + ww.y * cB.rgb + ww.z * cS.rgb + ww.w * cR.rgb;
   terrAlb *= (0.8 + 0.45 * mc.r) * (0.92 + 0.16 * mc2.g);
+  terrAlb = mix(terrAlb, vec3(dot(terrAlb, vec3(0.2126, 0.7152, 0.0722))) * vec3(0.97, 0.99, 1.04), uDesat); // the Moon: comet grey, no brown
   diffuseColor.rgb *= terrAlb;
   float terrRough = dot(ww, uRough);
   vec3 terrDelta = vec3(0.0);
@@ -122,6 +123,7 @@ export function makeTerrainMaterial(biome, q) {
     uRough: { value: new THREE.Vector4(L[0].rough, L[1].rough, L[2].rough, L[3].rough) },
     uEmit: { value: new THREE.Vector4(L[0].em, L[1].em, L[2].em, L[3].em) },
     uSlope: { value: new THREE.Vector2(0.17, 0.34) },
+    uDesat: { value: biome.desat || 0 },
     uT: { value: 0 }, uSpark: { value: biome.id === 'frozen' || biome.id === 'frost' ? 1 : 0 }, uNS: { value: biome.id === 'frozen' || biome.id === 'frost' ? 0.9 : 1.15 },
     uCrackCol: { value: new THREE.Color(crack[0], crack[1], crack[2]).multiplyScalar(biome.id === 'volcanic' || biome.id === 'volcano' ? 2.6 : 1.8) },
   };

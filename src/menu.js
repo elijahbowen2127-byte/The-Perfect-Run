@@ -344,8 +344,15 @@ export class MenuScene {
     let tp, tt;
     if (this.focusIdx >= 0) {
       const h = this.heroes[this.focusIdx].mesh.position;
-      tt = new THREE.Vector3(h.x, 0.6, h.z);
-      tp = new THREE.Vector3(h.x, 1.05, h.z + 5.3);
+      if (this.arc) {
+        // Arcade select: close on the hero, framed a touch right of centre, in the gap between the abilities panel and the Weapon Wall.
+        const side = this.camera.aspect > 1.3 ? -0.3 : 0;
+        tt = new THREE.Vector3(h.x + side, 0.98, h.z);
+        tp = new THREE.Vector3(h.x + side, 1.25, h.z + 3.5);
+      } else {
+        tt = new THREE.Vector3(h.x, 0.6, h.z);
+        tp = new THREE.Vector3(h.x, 1.05, h.z + 5.3);
+      }
     } else if (this.day) {
       // Title: the menu sits on the left, so the falls and the peaks are framed on the right. The camera drifts slowly.
       const off = this.camera.aspect > 1.3 ? -2.9 : 0;

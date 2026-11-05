@@ -249,10 +249,10 @@ function recipe(biome) {
       { kind: 'rock', colors: [[0.34, 0.34, 0.32], [0.58, 0.57, 0.52], [0.3, 0.42, 0.2]], scale: 6, rough: 0.9 },
     ];
     case 'space': return [
-      { kind: 'lavarock', colors: [[0.12, 0.06, 0.08], [0.26, 0.13, 0.16], biome.crackCol], scale: 7, rough: 0.8, em: 0.8 },
-      { kind: 'dust', colors: [[0.2, 0.1, 0.13], [0.38, 0.2, 0.24], [0.6, 0.36, 0.34]], scale: 5, rough: 0.92 },
-      { kind: 'dust', colors: [[0.3, 0.17, 0.2], [0.5, 0.3, 0.32], [0.72, 0.5, 0.46]], scale: 4, rough: 0.9 },
-      { kind: 'rock', colors: [[0.16, 0.1, 0.14], [0.36, 0.24, 0.3], [0.55, 0.4, 0.44]], scale: 6, rough: 0.88 },
+      { kind: 'dust', colors: [[0.3, 0.3, 0.32], [0.46, 0.46, 0.48], [0.6, 0.6, 0.62]], scale: 5, rough: 0.95 },
+      { kind: 'rock', colors: [[0.22, 0.22, 0.24], [0.4, 0.4, 0.42], [0.58, 0.58, 0.6]], scale: 6, rough: 0.9 },
+      { kind: 'dust', colors: [[0.36, 0.36, 0.38], [0.52, 0.52, 0.54], [0.7, 0.7, 0.72]], scale: 4, rough: 0.93 },
+      { kind: 'rock', colors: [[0.18, 0.18, 0.2], [0.34, 0.34, 0.36], [0.5, 0.5, 0.52]], scale: 6, rough: 0.88 },
     ];
     case 'dunes': return [
       { kind: 'sand', colors: [[0.74, 0.56, 0.3], [0.93, 0.76, 0.44], [0.6, 0.42, 0.22]], scale: 8, rough: 0.95 },

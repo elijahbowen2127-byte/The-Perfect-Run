@@ -162,13 +162,13 @@ export function propLibrary(biome, Q = 2) {
     return parts;
   });
   // Photo-scanned rocks (Poly Haven): mossy sets in green biomes, bare boulders elsewhere, tinted per biome.
-  const SCAN_TINT = { desert: [1.08, 0.94, 0.8], dunes: [1.1, 0.96, 0.82], frozen: [0.86, 0.9, 0.98], frost: [0.95, 1, 1.08], volcanic: [0.34, 0.31, 0.3], abyss: [0.5, 0.44, 0.66], space: [0.62, 0.42, 0.48], graveyard: [0.82, 0.84, 0.8] };
+  const SCAN_TINT = { desert: [1.08, 0.94, 0.8], dunes: [1.1, 0.96, 0.82], frozen: [0.86, 0.9, 0.98], frost: [0.95, 1, 1.08], volcanic: [0.34, 0.31, 0.3], abyss: [0.5, 0.44, 0.66], space: [0.72, 0.72, 0.75], graveyard: [0.82, 0.84, 0.8] };
   const green = id === 'forest' || id === 'meadow' || id === 'springs' || id === 'graveyard';
   const scanRocks = (caps) => {
     if (!scanReady()) return null;
     const tint = SCAN_TINT[id] || null, vars = [];
     const add = (mid, picks, sink = 0) => {
-      const files = scanVariants(mid), mat = scanMat(mid, { tint });
+      const files = scanVariants(mid), mat = scanMat(mid, { tint, desat: id === 'space' ? 0.9 : 0 });
       if (!mat) return;
       for (const k of picks) {
         const g = files[k] && scanGeo(files[k], { radius: 1 });

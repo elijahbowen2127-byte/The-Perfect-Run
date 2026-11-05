@@ -33,21 +33,21 @@ export const CLASSES = [
     e: { id: 'pillars', name: 'Pillar Burst', cd: 10, desc: 'Stamp the ground: a pillar of rock erupts under every enemy within 12 m, launching, stunning and crushing them.' },
   },
   {
-    id: 'tempest', name: 'Tempest', element: 'Storm', color: 0x2c3f8f, accent: 0x8fb4ff, css: '#8fb4ff',
+    id: 'tempest', name: 'Tempest', element: 'Storm', color: 0x2c3f8f, accent: 0x8fb4ff, css: '#b57bff',
     tagline: 'Strike first. Strike everywhere.',
     q: { id: 'chain', name: 'Chain Lightning', cd: 5, desc: 'A thick braid of lightning strands that snap together on one focal point at the far end, going straight through everything in its path and striking every enemy it touches. The current also reflects to nearby enemies, and the braid stays up for 4s, striking anything that walks into it.' },
     r: { id: 'storm', name: 'Thunderstorm', cd: 10, desc: 'Call a wide storm cell (26 m across) that hammers the whole area with lightning for 4s. Every bolt stays up until the storm ends and hits anything that touches it.' },
     e: { id: 'shockwave', name: 'Thunder Shockwave', cd: 10, desc: 'Slam the ground and send a tight ring of electricity racing 32 m in every direction. Everything it crosses is badly shocked.' },
   },
   {
-    id: 'rime', name: 'Rime', element: 'Frost', color: 0x2f7fa8, accent: 0xaee8ff, css: '#aee8ff',
+    id: 'rime', name: 'Rime', element: 'Frost', color: 0x2f7fa8, accent: 0xaee8ff, css: '#3f86ff',
     tagline: 'Everything stops.',
     q: { id: 'shards', name: 'Ice Shards', cd: 5, desc: 'Tiny ice shards form around you and dart at every enemy nearby, chilling what they hit.' },
     r: { id: 'barrier', name: 'Ice Barrier', cd: 10, desc: 'Raise a wall of ice ahead of you for 8s. Anything that touches it is locked inside an ice crystal for 10 seconds, however big.' },
     e: { id: 'tsunami', name: 'Tsunami', cd: 10, desc: 'A towering wave of water surges forward and drowns a wide spread of enemies.' },
   },
   {
-    id: 'gale', name: 'Gale', element: 'Wind', color: 0x3f8a6c, accent: 0xbaffea, css: '#9dffd9',
+    id: 'gale', name: 'Gale', element: 'Wind', color: 0x3f8a6c, accent: 0xbaffea, css: '#dfe4ea',
     tagline: 'Never where they aim.',
     q: { id: 'veil', name: 'Storm Veil', cd: 5, desc: 'Unleash a thick, howling curtain of wind in a wide cone ahead for 3s. It keeps shoving enemies back, slashes them and slows them while they are inside.' },
     r: { id: 'cyclone', name: 'Cyclone', cd: 10, desc: 'Unleash a tornado that drags enemies in and shreds them.' },
@@ -173,9 +173,9 @@ export const BIOMES = [
   // Index 7: the hidden space map. Only joins the stage pool once the game has been beaten on Hard (see stageIdx).
   {
     id: 'space', name: 'Crash Site Prime', seedTex: 808,
-    groundCols: [[0.3, 0.15, 0.2], [0.42, 0.22, 0.26], [0.2, 0.12, 0.18]], ground: 'cracked', crackCol: [1.0, 0.45, 0.15],
-    sky: [0x020208, 0x2a0f2e], fog: 0x2a1424, fogDensity: 0.0085, sun: 0xffb08a, sunI: 1.5, hemi: [0xb080c0, 0x28101a], hemiI: 0.7,
-    props: ['rock', 'voidcrystal', 'obelisk'], mobTint: 0xb07ac0,
+    groundCols: [[0.4, 0.4, 0.42], [0.52, 0.52, 0.54], [0.3, 0.3, 0.32]], ground: 'pebbles', crackCol: [0, 0, 0], // moon-grey floor (Nutty 2026-11-05: no lava)
+    sky: [0x010104, 0x1c0b22], fog: 0x0d0e14, fogDensity: 0.0055, sun: 0xf2f5ff, sunI: 2.0, hemi: [0x8c94b4, 0x26282e], hemiI: 0.6, desat: 0.9, // hard white sunlight, grey ground, like the real Moon
+    props: ['rock'], mobTint: 0xb07ac0, // only space rocks: no trees, no plants
   },
   // Indices 8-11 (2026-11-05): the lobby backdrops turned into maps (see stages.js). `tex` names the biome whose ground textures,
   // prop tints and splat rules they borrow; `stage` the music they share. They join the stage pool through STAGE_POOL below.
@@ -260,22 +260,31 @@ export const MOBS = {
 };
 // Every stage has its own tribe: these are the ground types a round draws from (flyers join on top, see HostSim.pickLineup).
 export const STAGE_MOBS = {
-  graveyard: ['grunt', 'wraith', 'archer', 'necro', 'banshee'],
-  forest: ['goblin', 'gobshaman', 'venomfang', 'troll', 'gobchief'],
-  desert: ['bandit', 'spitter', 'rifleman', 'pouncer', 'ogre'],
-  frozen: ['crawler', 'knight', 'bulwark', 'juggernaut', 'dreadknight'],
-  volcanic: ['hatchling', 'bomber', 'brute', 'cinder', 'ravager'],
+  graveyard: ['grunt', 'wraith', 'archer', 'necro', 'banshee', 'shambler', 'deadcop'],
+  forest: ['goblin', 'gobshaman', 'venomfang', 'troll', 'gobchief', 'shambler'],
+  desert: ['bandit', 'spitter', 'rifleman', 'pouncer', 'ogre', 'trooper', 'riot'],
+  frozen: ['crawler', 'knight', 'bulwark', 'juggernaut', 'dreadknight', 'warmaiden'],
+  volcanic: ['hatchling', 'bomber', 'brute', 'cinder', 'ravager', 'riot'],
   abyss: ['runner', 'assassin', 'hexer', 'witch'],
-  springs: ['hatchling', 'venomfang', 'pouncer', 'spitter', 'troll'],
+  springs: ['hatchling', 'venomfang', 'pouncer', 'spitter', 'troll', 'trooper'],
   space: ['zorp', 'skree', 'gloop', 'lanky', 'stinger', 'brainer', 'warden', 'gorgle'], // Gruk out (Nutty 2026-11-05); Gorgle in (picked 2026-11-05)
   waterfall: ['hatchling', 'venomfang', 'pouncer', 'spitter', 'troll'],
-  clearing: ['goblin', 'gobshaman', 'venomfang', 'troll', 'gobchief'],
+  clearing: ['goblin', 'gobshaman', 'venomfang', 'troll', 'gobchief', 'warmaiden'],
   volcano: ['hatchling', 'bomber', 'brute', 'cinder', 'ravager'],
-  ruins: ['grunt', 'wraith', 'archer', 'necro', 'banshee'],
+  ruins: ['grunt', 'wraith', 'archer', 'necro', 'banshee', 'shambler', 'deadcop', 'riot'],
 };
 // Flyers belong to the abyss alone, so no other stage repeats them.
 export const STAGE_FLY = { abyss: ['gloomwing', 'skyhunter'], space: ['wasp'] };
 // Every other stage takes its flyer in turn from this list, a different one each round (Nutty 2026-11-05: alternate all flyers, #8 included).
+// Hit zones (Nutty 2026-11-05): every body takes different damage by where a shot lands. Head = yellow number.
+export const ZONE_K = { head: 2.0, body: 1.0, arm: 0.75, leg: 0.7 };
+export function zoneOf(t, y, d2) {
+  const rel = (y - t.y) / (t.h || 1), r = t.r || 0.5;
+  if (rel > (t.kind === 'boss' ? 0.86 : 0.82)) return 'head';
+  if (rel < 0.45) return 'leg';
+  if (d2 > r * r * 0.36) return 'arm';
+  return 'body';
+}
 export const FLYERS = ['gloomwing', 'skyhunter', 'wasp', 'surgeon'];
 // Ghoul and Stalker share the lizard-troll body and used to be most of every round: keep them rare.
 MOBS.grunt.w = 0.4; MOBS.grunt.pack = [1, 2]; MOBS.grunt.share = 0.22; MOBS.grunt.fam = 'troll';
@@ -297,6 +306,15 @@ Object.assign(MOBS, {
   echo8: { name: 'Echo of The Visitor', tier: 3, hp: 1800, speed: 5.6, dmg: 36, range: 3.6, rate: 1.3, radius: 1.1, height: 5.0, scale: 1, summoned: true, cost: 3, slam: { r: 5, d: 1.0, dmg: 36, cd: 4.5 } },
 });
 
+// The rest of the Mixamo bodies as mobs (Nutty 2026-11-05: "all other unlisted characters will be added to the mobs").
+Object.assign(MOBS, {
+  shambler: { name: 'Shambler', tier: 1, hp: 64, speed: 4.2, dmg: 9, range: 1.9, rate: 1.0, radius: 0.55, height: 1.8, scale: 1, color: 0x5a6a4a, w: 1.0, cap: 8 }, // #12 rotting man in jeans
+  deadcop: { name: 'Dead Cop', tier: 2, hp: 120, speed: 4.4, dmg: 13, range: 2.0, rate: 1.0, radius: 0.55, height: 1.85, scale: 1, color: 0x2a3040, w: 0.9, cap: 4 }, // #13 zombie police officer
+  trooper: { name: 'Trench Trooper', tier: 2, hp: 95, speed: 4.6, dmg: 14, range: 40, rate: 2.0, radius: 0.5, height: 1.85, scale: 1, color: 0x5a6040, w: 0.9, cap: 4, ranged: true, hold: [14, 26], pspd: 70, pstyle: 3 }, // #16 helmeted infantryman
+  warmaiden: { name: 'Warmaiden', tier: 2, hp: 150, speed: 4.8, dmg: 17, range: 2.2, rate: 1.1, radius: 0.55, height: 1.85, scale: 1, color: 0x6a5a4a, w: 0.9, cap: 3 }, // #17 armoured warrior woman
+  riot: { name: 'Riot Trooper', tier: 3, hp: 220, speed: 4.4, dmg: 16, range: 40, rate: 1.8, radius: 0.55, height: 1.9, scale: 1, color: 0x34465a, w: 0.8, cap: 3, ranged: true, hold: [14, 26], pspd: 70, pstyle: 3 }, // #21 armoured SWAT trooper
+});
+
 // Tuning: mobs are bigger, hit 10% softer and close in 10% slower, so there is time to
 // run and grab drops. Health is untouched, so kills take as long as before.
 export const MOB_SIZE = 1.3;
@@ -315,6 +333,61 @@ for (const id of ['runner', 'gloomwing', 'ravager', 'assassin', 'skree', 'wasp']
 export const MOB_MAX_SPEED = 5.0;
 for (const [id, m] of Object.entries(MOBS)) if (!id.startsWith('echo')) m.speed = Math.min(m.speed, MOB_MAX_SPEED);
 export const MOB_TYPES = Object.keys(MOBS);
+
+// ---------- Mob weapons (Nutty 2026-11-05) ----------
+// Human-looking mobs carry combat weapons (blades, axes, maces, spears, crossbows), soldiers carry guns only, zombies carry crude
+// scavenged weapons. Each mob spawned picks one at random from its class, so a crowd mixes them. Melee weapons change reach,
+// damage and swing speed; ranged ones turn the mob into a shooter that keeps its distance. `gear` is the prop mobrig.js builds.
+export const MOB_ARMS = {
+  // soldiers: guns only
+  rifle: { cls: 'soldier', gear: 'arifle', ranged: true, range: 44, rate: 2.0, dmgK: 1.0, hold: [16, 28], pspd: 72, pstyle: 3 },
+  smg: { cls: 'soldier', gear: 'smg', ranged: true, range: 28, rate: 0.75, dmgK: 0.45, hold: [9, 17], pspd: 66, pstyle: 3 },
+  pistol: { cls: 'soldier', gear: 'pistol', ranged: true, range: 30, rate: 1.25, dmgK: 0.65, hold: [10, 18], pspd: 62, pstyle: 3 },
+  shotgun: { cls: 'soldier', gear: 'shotgun', ranged: true, range: 16, rate: 1.9, dmgK: 1.4, hold: [6, 12], pspd: 58, pstyle: 3 },
+  // humans: combat weapons, close and far reach
+  sword: { cls: 'human', gear: 'sword', reach: 0.5, rate: 1.0, dmgK: 1.1 },
+  axe: { cls: 'human', gear: 'axe', reach: 0.4, rate: 1.15, dmgK: 1.25 },
+  mace: { cls: 'human', gear: 'mace', reach: 0.3, rate: 1.2, dmgK: 1.3 },
+  spear: { cls: 'human', gear: 'spear', reach: 1.4, rate: 1.0, dmgK: 1.05 },
+  greatsword: { cls: 'human', gear: 'greatsword', reach: 0.9, rate: 1.35, dmgK: 1.45 },
+  crossbow: { cls: 'human', gear: 'crossbow', ranged: true, range: 40, rate: 2.4, dmgK: 1.3, hold: [14, 24], pspd: 46, pstyle: 2 },
+  // zombies: crude scavenged weapons
+  pipe: { cls: 'zombie', gear: 'pipe', reach: 0.35, rate: 1.05, dmgK: 1.1 },
+  cleaver: { cls: 'zombie', gear: 'cleaver', reach: 0.15, rate: 0.9, dmgK: 1.15 },
+  plank: { cls: 'zombie', gear: 'plank', reach: 0.45, rate: 1.15, dmgK: 1.25 },
+  machete: { cls: 'zombie', gear: 'machete', reach: 0.3, rate: 0.95, dmgK: 1.15 },
+  shovel: { cls: 'zombie', gear: 'shovel', reach: 0.6, rate: 1.2, dmgK: 1.2 },
+};
+export const MOB_ARM_IDS = Object.keys(MOB_ARMS);
+const ARMS_OF = (cls) => MOB_ARM_IDS.filter((k) => MOB_ARMS[k].cls === cls);
+// Which mob types carry a random weapon, and from which pool. Mobs not listed keep what they have (casters keep their staffs,
+// monsters their claws, the Brute the hammer his body already holds, the archer its bow).
+export const MOB_ARM_POOL = {
+  grunt: ARMS_OF('zombie'), runner: ARMS_OF('zombie'), shambler: ARMS_OF('zombie'), deadcop: ['pipe', 'machete', 'pistol'],
+  troll: ARMS_OF('human'), goblin: ARMS_OF('human'), gobchief: ['sword', 'axe', 'mace', 'greatsword'], bandit: ARMS_OF('human'),
+  assassin: ['sword', 'spear', 'crossbow'], knight: ['sword', 'axe', 'mace', 'spear'], dreadknight: ['greatsword', 'axe', 'mace'], warmaiden: ARMS_OF('human'),
+  rifleman: ARMS_OF('soldier'), bulwark: ['pistol', 'smg', 'shotgun'], juggernaut: ['shotgun', 'rifle', 'smg'], trooper: ARMS_OF('soldier'), riot: ARMS_OF('soldier'),
+};
+// The mob's stats with its weapon applied (cached per type and weapon). wi: index into MOB_ARM_IDS, plus 1 (0 = unarmed).
+const _armed = new Map();
+export function armedBase(type, wi) {
+  const base = MOBS[type];
+  if (!wi) return base;
+  const key = type + '@' + wi;
+  if (_armed.has(key)) return _armed.get(key);
+  const A = MOB_ARMS[MOB_ARM_IDS[wi - 1]];
+  const b = { ...base, arm: MOB_ARM_IDS[wi - 1], dmg: Math.round(base.dmg * A.dmgK) };
+  if (A.ranged) Object.assign(b, { ranged: true, range: A.range, rate: A.rate, hold: A.hold, pspd: A.pspd, pstyle: A.pstyle });
+  else { delete b.ranged; delete b.pstyle; delete b.pspd; delete b.hold; b.range = (base.ranged ? 2.0 : base.range) + A.reach; b.rate = (base.ranged ? 1.0 : base.rate) * A.rate; }
+  _armed.set(key, b);
+  return b;
+}
+export function pickArm(type, rnd = Math.random) {
+  const pool = MOB_ARM_POOL[type];
+  if (!pool || !pool.length) return 0;
+  return MOB_ARM_IDS.indexOf(pool[Math.floor(rnd() * pool.length)]) + 1;
+}
+
 
 // Boss health is multiplied by BOSS_HP and grows BOSS_GROW per round on top (see HostSim.spawnBoss); their hits use dmgScale.
 export const BOSS_HP = 2.5, BOSS_GROW = 0.45;

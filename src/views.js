@@ -4,7 +4,7 @@ import { PERF } from './perf.js';
 import { makeRiderBoard, RiderAnim, unpackBoard } from './skate.js';
 import { animateWeapon } from './weapons.js';
 import * as THREE from 'three';
-import { MOBS, MOB_TYPES, BOSSES, NPCS, NPC_TYPES, CLASS_BY_ID, WEAPON_BY_ID, MINI, ELITE } from './data.js';
+import { MOBS, MOB_TYPES, MOB_ARM_IDS, armedBase, BOSSES, NPCS, NPC_TYPES, CLASS_BY_ID, WEAPON_BY_ID, MINI, ELITE } from './data.js';
 import { makeHumanoid, makeMob, makeBoss, makeDemon, makeNameplate } from './models.js';
 import { makeCharacterModel, flushSwipes, setCharacterScale, STEP_KIND, stepAccum } from './characters.js';
 import { makeMobRig, MOB_LOOKS } from './mobrig.js';
@@ -179,8 +179,9 @@ export class MobView {
     this.scene = scene;
     this.id = row[0];
     this.type = MOB_TYPES[row[1]];
-    this.base = MOBS[this.type];
-    this.rig = makeMobRig(this.type);
+    this.wi = row[11] | 0; // the weapon it carries (MOB_ARM_IDS index + 1)
+    this.base = armedBase(this.type, this.wi);
+    this.rig = makeMobRig(this.wi ? this.type + '@' + MOB_ARM_IDS[this.wi - 1] : this.type);
     if (this.rig) {
       this.model = this.rig.root;
       this.vh = MOB_LOOKS[this.type].h + (MOB_LOOKS[this.type].float || 0);

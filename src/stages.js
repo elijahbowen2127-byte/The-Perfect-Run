@@ -357,6 +357,13 @@ function setupSpace(w) {
     if (craters.some((c) => Math.hypot(c.x - x, c.z - z) < c.r + cr + 4)) continue;
     craters.push({ x, z, r: cr, d: cr * 0.16, rim: cr * 0.06 });
   }
+  // Moon-style minor craters everywhere (Nutty 2026-11-05): shallow bowls the player can walk in and out of.
+  for (let tries = 0; craters.length < 48 && tries < 600; tries++) {
+    const a = r() * TAU, d = 28 + r() * 100, x = Math.cos(a) * d, z = Math.sin(a) * d, cr = 3.5 + r() * 5;
+    if (Math.hypot(x - w.spawn.x, z - w.spawn.z) < cr + 6 || Math.hypot(x - w.arena.x, z - w.arena.z) < w.arena.r + cr + 2) continue;
+    if (craters.some((c) => Math.hypot(c.x - x, c.z - z) < c.r + cr + 1.5)) continue;
+    craters.push({ x, z, r: cr, d: cr * 0.22, rim: cr * 0.08 });
+  }
   w.carves.push((x, z, h) => {
     for (const c of craters) {
       const d = Math.hypot(x - c.x, z - c.z);
@@ -445,29 +452,45 @@ function buildSpace(w, st) {
   plume(w, emberSrc, { count: 120, color: 0xffa040, size: 1.6, rise: 26, life: 3.4, alpha: 0.9, spread: 2, additive: true, drift: [0.7, 0, 0.25], grow: 0.2 });
   // A pool of firelight on the crater floor.
   const glowTex = SOFT();
-  const lightPool = new THREE.Mesh(new THREE.PlaneGeometry(130, 130).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: glowTex, color: 0xff6a1a, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  const lightPool = new THREE.Mesh(new THREE.PlaneGeometry(34, 34).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: glowTex, color: 0xff6a1a, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
   lightPool.position.set(0, floor + 1.2, 0); lightPool.renderOrder = 1; lightPool.frustumCulled = false; w.group.add(lightPool);
-  w.animated.push((t) => { lightPool.material.opacity = 0.42 + Math.sin(t * 7) * 0.05 + Math.sin(t * 13.3) * 0.04; });
+  w.animated.push((t) => { lightPool.material.opacity = 0.22 + Math.sin(t * 7) * 0.03 + Math.sin(t * 13.3) * 0.02; });
 
   // ---- wreckage and alien plants ----
-  const junkGeo = prep(blob(1, 1, 0.55, 8, 0x3a3d44, 0x6b7078, 1.6, 0.5, 1));
-  const junk = [];
-  for (let i = 0; i < 40; i++) {
-    const a = r() * TAU, d = 24 + r() * 26, x = Math.cos(a) * d, z = Math.sin(a) * d, s = 0.6 + r() * 1.6;
-    junk.push({ m: matrixAt(x, w.heightAt(x, z) - 0.1, z, r() * TAU, s, s * (0.6 + r() * 0.8)), x, z });
+  // (the low-poly wreckage chunks are gone: Nutty wants nothing clay on the moon; the UFO's own torn plating stays)
+  // ---- space rocks in weird formations (Nutty 2026-11-05: no trees or plants, only rock) ----
+  // Scanned boulders stacked into arches, balancing towers, leaning spires and stone rings, plus loose boulders.
+  const rockDef = propLibrary(w.biome, Q).rock(), rvars = rockDef.variants, rlists = rvars.map(() => []);
+  const putRock = (x, y, z, sc, sy, yaw, tiltX = 0, tiltZ = 0) => {
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(tiltX, yaw, tiltZ));
+    rlists[Math.floor(r() * rvars.length)].push({ m: new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(sc, sy, sc)), x, z });
+  };
+  const formations = [];
+  for (let i = 0, k = 0; i < [14, 20, 26][Q] && k < 900; k++) {
+    const a = r() * TAU, d = 34 + r() * 88, x = Math.cos(a) * d, z = Math.sin(a) * d;
+    if (!w.clearOf(x, z, 7) || w.blocked(x, z, 6) || formations.some((f) => Math.hypot(f[0] - x, f[1] - z) < 16)) continue;
+    const h = w.heightAt(x, z), kind = Math.floor(r() * 4), yaw = r() * TAU;
+    if (kind === 0) { // arch: two uprights and a bridge stone
+      const g = 3 + r() * 1.5, sc = 1.6 + r() * 0.6, hh = sc * 2.6, c = Math.cos(yaw), sn = Math.sin(yaw);
+      putRock(x + c * g, h - 0.3, z - sn * g, sc, sc * 2.1, yaw + 0.3); putRock(x - c * g, h - 0.3, z + sn * g, sc, sc * 2.0, yaw - 0.4);
+      putRock(x, h + hh, z, sc * 1.3, sc * 0.75, yaw + 1.57, 0, 0.08);
+      w.addCollider(x + c * g, z - sn * g, sc, h + hh); w.addCollider(x - c * g, z + sn * g, sc, h + hh);
+      w.platforms.push({ x, z, r: sc * 1.6, top: h + hh + sc * 0.6 });
+    } else if (kind === 1) { // balancing tower: three boulders getting smaller, slightly off axis
+      let y = h - 0.3, sc = 2.0 + r() * 0.7, ox = 0, oz = 0;
+      for (let j = 0; j < 3; j++) { putRock(x + ox, y, z + oz, sc, sc * 0.8, r() * TAU, (r() - 0.5) * 0.15, (r() - 0.5) * 0.15); y += sc * 1.25; sc *= 0.78; ox += (r() - 0.5) * 0.8; oz += (r() - 0.5) * 0.8; }
+      w.addCollider(x, z, 2.2, y); w.platforms.push({ x: x + ox, z: z + oz, r: sc * 1.3, top: y + sc * 0.2 });
+    } else if (kind === 2) { // leaning spire
+      const sc = 1.4 + r() * 0.5, lean = 0.25 + r() * 0.2;
+      putRock(x, h - 0.5, z, sc, sc * 4.2, yaw, lean, 0); w.addCollider(x, z, sc * 1.1, h + sc * 6);
+    } else { // ring of standing stones round a shallow hollow
+      const n = 5 + Math.floor(r() * 3), R = 4 + r() * 2;
+      for (let j = 0; j < n; j++) { const aa = (j / n) * TAU + yaw, sc = 0.9 + r() * 0.5, sx = x + Math.cos(aa) * R, sz = z + Math.sin(aa) * R; putRock(sx, w.heightAt(sx, sz) - 0.3, sz, sc, sc * 2.2, aa, (r() - 0.5) * 0.2, (r() - 0.5) * 0.2); w.addCollider(sx, sz, sc * 0.9, h + sc * 3); }
+    }
+    w.blobs.push({ x, z, y: h, r: 7 }); formations.push([x, z]); i++;
   }
-  w.addInstanced([{ geo: junkGeo, mat: stdVC({ roughness: 0.4, metalness: 0.8 }) }], junk, { cast: true });
-  const stem = tint(prep(new THREE.CylinderGeometry(0.06, 0.16, 3.2, 6).translate(0, 1.6, 0)), 0x3a2a4a);
-  const bulbGeo = prep(new THREE.IcosahedronGeometry(0.5, 1).translate(0, 3.4, 0));
-  const plants = [], bulbs = [], pcols = [0x3affd0, 0xff4ad0, 0xb6ff3a, 0x6a8aff, 0xffb83a];
-  for (let i = 0, k = 0; i < [70, 130, 200][Q] && k < 6000; k++) {
-    const x = (r() * 2 - 1) * 122, z = (r() * 2 - 1) * 122;
-    if (!w.clearOf(x, z, 1.2) || w.blocked(x, z, 1)) continue;
-    const h = w.heightAt(x, z), s = 0.6 + r() * 1.4, m = matrixAt(x, h - 0.05, z, r() * TAU, s);
-    plants.push({ m, x, z }); bulbs.push({ m, x, z, c: new THREE.Color(pcols[Math.floor(r() * pcols.length)]).multiplyScalar(2.2) }); i++;
-  }
-  w.addInstanced([{ geo: stem, mat: stdVC({ roughness: 0.7 }) }], plants, { cast: false });
-  w.addInstanced([{ geo: bulbGeo, mat: new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }) }], bulbs, { cast: false, receive: false });
+  rvars.forEach((parts, vi) => rlists[vi].length && w.addInstanced(parts, rlists[vi], { cast: true }));
+  scanBoulders(w, r, [40, 70, 100][Q], () => { const a = r() * TAU, d = 30 + r() * 95; return [Math.cos(a) * d, Math.sin(a) * d]; }, { s: [0.8, 3.0], sink: 0.2, maxSlope: 2.5 });
 
   // ---- the sky: stars and a ringed planet ----
   const starN = 1400, sp = new Float32Array(starN * 3), sc = new Float32Array(starN * 3);
@@ -479,6 +502,22 @@ function buildSpace(w, st) {
   const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); sg.setAttribute('color', new THREE.BufferAttribute(sc, 3));
   const stars = new THREE.Points(sg, new THREE.PointsMaterial({ size: 3, sizeAttenuation: false, vertexColors: true, fog: false, depthWrite: false, transparent: true }));
   stars.renderOrder = -0.8; stars.frustumCulled = false; w.group.add(stars);
+  // The galaxy: a band of milky light and coloured nebulae painted on the inside of the sky, plus more worlds.
+  const gal = new THREE.Mesh(new THREE.SphereGeometry(860, 48, 24), new THREE.MeshBasicMaterial({ map: galaxyTexture(), transparent: true, side: THREE.BackSide, fog: false, depthWrite: false, toneMapped: false }));
+  gal.rotation.set(0.55, 0.8, 0.3); gal.renderOrder = -0.85; gal.frustumCulled = false; w.group.add(gal);
+  const worlds = new THREE.Group();
+  const shade = (c1, c2, f) => new THREE.ShaderMaterial({
+    uniforms: { c1: { value: new THREE.Color(c1) }, c2: { value: new THREE.Color(c2) }, f: { value: f } },
+    vertexShader: 'varying vec3 vN; varying vec3 vP; void main(){ vN = normalize(normalMatrix * normal); vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+    fragmentShader: 'uniform vec3 c1, c2; uniform float f; varying vec3 vN; varying vec3 vP; void main(){ float b = sin(vP.y * f) * .5 + .5 + sin(vP.y * f * 3.3 + 1.) * .15; vec3 c = mix(c1, c2, b); float l = clamp(dot(normalize(vN), normalize(vec3(-.6, .35, .7))) * .9 + .12, .05, 1.); gl_FragColor = vec4(c * l, 1.); }',
+    fog: false, depthWrite: false,
+  });
+  const gas = new THREE.Mesh(new THREE.SphereGeometry(75, 32, 20), shade(0x2a5aa8, 0x9fd0ff, 0.14)); gas.position.set(520, 300, 180); worlds.add(gas);
+  const moon = new THREE.Mesh(new THREE.SphereGeometry(28, 24, 14), shade(0x6a3a30, 0xd09a80, 0.5)); moon.position.set(140, 420, -600); worlds.add(moon);
+  const far = new THREE.Mesh(new THREE.SphereGeometry(14, 16, 10), shade(0x8ab0a0, 0xe0fff0, 0.9)); far.position.set(-640, 250, 320); worlds.add(far);
+  const glare = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshBasicMaterial({ map: SOFT(), color: 0xfff0d0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false }));
+  glare.position.set(-700, 380, -200); glare.lookAt(0, 0, 0); worlds.add(glare);
+  worlds.renderOrder = -0.7; worlds.traverse((o) => { o.frustumCulled = false; o.renderOrder = -0.7; }); w.group.add(worlds);
   const planet = new THREE.Group();
   const bands = new THREE.ShaderMaterial({
     uniforms: {}, vertexShader: 'varying vec3 vN; varying vec3 vP; void main(){ vN = normalize(normalMatrix * normal); vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',

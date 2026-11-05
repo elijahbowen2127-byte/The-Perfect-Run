@@ -432,7 +432,7 @@ export function launchArrow(g, o, d, { speed = 60, dmg = 0, pierce = 1, style = 
           if (hitIds.has(h.t.id) || hitIds.size >= pierce) continue;
           hitIds.add(h.t.id); st.hits++;
           const k = Math.pow(0.7, hitIds.size - 1);
-          if (st.dmg) g.damage(h.t, st.dmg * k * (h.head ? head : 1), { at: h.point, head: h.head });
+          if (st.dmg) g.damage(h.t, st.dmg * k * (h.head ? head : (h.zone === 'arm' ? 0.75 : h.zone === 'leg' ? 0.7 : 1)), { at: h.point, zone: h.zone, head: h.head });
           g.fx.impact([h.point.x, h.point.y, h.point.z], [0.75, 0.12, 0.08]);
           if (hitIds.size >= pierce) { // buried in the last one: it stays in them while they are up
             thunk(h.point, 0.8);
