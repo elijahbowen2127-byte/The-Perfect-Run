@@ -161,6 +161,7 @@ export class Game {
     const px = (h * this.renderer.getPixelRatio()) / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
     this.fx.setScale(px);
     if (this.menu) this.menu.fx.setScale(px);
+    if (this.ui && this.ui.fitScreen) requestAnimationFrame(() => this.ui.fitScreen());
   }
 
   lsKey(k) { return this.isBot ? 'bot.' + k : this.seat === 2 ? 'p2.' + k : k; }

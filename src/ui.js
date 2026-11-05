@@ -106,6 +106,30 @@ export class UI {
     this.$$('.screen').forEach((s) => s.classList.toggle('on', s.id === id));
     this.root.dataset.screen = id || '';
     if (id === 's-title' && this.ringPlace) requestAnimationFrame(this.ringPlace);
+    requestAnimationFrame(() => this.fitScreen());
+  }
+
+  // Shrink the open menu screen until it fits (fullscreen on a laptop at 125% scaling is only ~864 px tall).
+  fitScreen() {
+    const s = this.root && this.root.querySelector('.screen.on');
+    if (!s) return;
+    const kids = [...s.children];
+    kids.forEach((k) => (k.style.zoom = ''));
+    // Content that is taller than the screen also hides above the top when centred, so measure the real edges.
+    const over = () => {
+      const r = s.getBoundingClientRect();
+      let top = 0, bot = s.clientHeight, right = s.clientWidth;
+      s.querySelectorAll('*').forEach((e) => { if (!e.offsetParent && getComputedStyle(e).position !== 'fixed') return; const b = e.getBoundingClientRect(); if (!b.height) return; top = Math.min(top, b.top - r.top); bot = Math.max(bot, b.bottom - r.top); right = Math.max(right, b.right - r.left); });
+      return Math.min(s.clientHeight / (bot - top), s.clientWidth / right);
+    };
+    let z = 1;
+    for (let i = 0; i < 4; i++) {
+      const f = over();
+      if (f >= 0.995) break;
+      z = Math.max(0.55, z * f * 0.98);
+      kids.forEach((k) => (k.style.zoom = z.toFixed(3)));
+    }
+    if (s.id === 's-title' && this.ringPlace) this.ringPlace();
   }
 
   // The fiery ring beside the game mode you are on: it follows the mouse, keyboard focus and the controller.
