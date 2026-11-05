@@ -36,7 +36,7 @@ export const CLASSES = [
     id: 'tempest', name: 'Tempest', element: 'Storm', color: 0x2c3f8f, accent: 0x8fb4ff, css: '#8fb4ff',
     tagline: 'Strike first. Strike everywhere.',
     q: { id: 'chain', name: 'Chain Lightning', cd: 5, desc: 'A thick braid of lightning strands that snap together on one focal point at the far end, going straight through everything in its path and striking every enemy it touches. The current also reflects to nearby enemies.' },
-    r: { id: 'storm', name: 'Thunderstorm', cd: 10, desc: 'Call a wide storm cell (26 m across) that hammers the whole area with lightning for 6s.' },
+    r: { id: 'storm', name: 'Thunderstorm', cd: 10, desc: 'Call a wide storm cell (26 m across) that hammers the whole area with lightning for 4s. Anything inside it keeps getting shocked.' },
     e: { id: 'shockwave', name: 'Thunder Shockwave', cd: 10, desc: 'Slam the ground and send a tight ring of electricity racing 32 m in every direction. Everything it crosses is badly shocked.' },
   },
   {
@@ -272,6 +272,17 @@ for (const m of Object.values(MOBS)) {
   m.dmg = Math.round(m.dmg * 0.9 * 10) / 10;
   m.speed = Math.round(m.speed * 0.9 * 100) / 100;
 }
+// Nutty (2026-11-05): no more tiny mobs. Regular mobs already stand ~1.5x a player (MOB_SIZE * MOB_TALL); the two that
+// still came out shorter than 90% of a player (Skree 1.35 m, Hatchling 1.42 m) now stand within 10% of one (player ~1.8 m).
+// SMALL_TO is the new standing height in metres (mobrig.js MOB_LOOKS uses it too); SMALL_FROM their look's base height.
+export const SMALL_TO = { skree: 1.66, hatchling: 1.72 };
+const SMALL_FROM = { skree: 0.9, hatchling: 0.95 };
+for (const [id, to] of Object.entries(SMALL_TO)) {
+  const m = MOBS[id], f = to / (SMALL_FROM[id] * MOB_SIZE * MOB_TALL);
+  if (m) { m.scale *= f; m.height *= f; m.radius *= Math.min(f, 1.3); }
+}
+// ...and the ones that outran a walking player (Stalker, Gloomwing, Ravager, Shadow Blade, Skree, Hive Wasp) move 30% slower.
+for (const id of ['runner', 'gloomwing', 'ravager', 'assassin', 'skree', 'wasp']) if (MOBS[id]) MOBS[id].speed = Math.round(MOBS[id].speed * 0.7 * 100) / 100;
 export const MOB_TYPES = Object.keys(MOBS);
 
 // Boss health is multiplied by BOSS_HP and grows BOSS_GROW per round on top (see HostSim.spawnBoss); their hits use dmgScale.

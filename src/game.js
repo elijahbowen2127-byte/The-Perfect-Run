@@ -1399,7 +1399,7 @@ export class Game {
       case 'ep': { const pts = []; for (let i = 0; i + 2 < a.length; i += 3) pts.push(P(i)); this.el.pillars(pts, [v.pos.x, v.pos.y, v.pos.z]); this.audio.play('quake', vol); break; }
       case 'es': this.el.armorShock(P(0)); this.audio.play('earth', vol * 0.5); break;
       case 'sq': { const pts = []; for (let i = 0; i + 2 < a.length; i += 3) pts.push(P(i)); this.el.chain(pts); this.audio.play('zap', vol); break; }
-      case 'sr': this.el.thunderstorm(P(0), a[3], 6, 13); this.audio.play('thunder', vol); break;
+      case 'sr': this.el.thunderstorm(P(0), a[3], 4, 13); this.audio.play('thunder', vol); break;
       case 'iq': this.el.frostNova(P(0), a[3] ? a[3] / 10 : 7); this.audio.play('ice', vol); break;
       case 'is': { const pts = []; for (let i = 3; i + 2 < a.length; i += 3) pts.push(P(i)); this.el.iceShards(P(0), pts); this.audio.play('ice', vol); break; }
       case 'ib': this.el.iceBarrier(P(0), P(3), 8); this.audio.play('ice_big', vol); break;

@@ -606,10 +606,11 @@ export class Elements {
     });
   }
 
-  thunderstorm(c, seed, dur = 6, radius = 8, onStrike) {
+  // onTick (caster only): called every 0.5 s while the cell is up, so whatever walks into it keeps getting shocked.
+  thunderstorm(c, seed, dur = 4, radius = 8, onStrike, onTick) {
     const fx = this.fx;
     const r = mulberry32(seed);
-    let next = 0.4;
+    let next = 0.4, tick = 0.25;
     const cy = this.h(c[0], c[2]) + 17;
     fx.decal([c[0], 0, c[2]], TX.ringDecal(), radius * 2, dur, { color: 0x6f8cff, additive: true, opacity: 0.5 });
     fx.add({
@@ -627,6 +628,7 @@ export class Elements {
           onStrike && onStrike([x, this.h(x, z), z]);
           next += 0.24; // a 13 m wide cell: strikes come a little faster to keep it dense
         }
+        while (onTick && t >= tick && tick < dur) { onTick(); tick += 0.5; }
       },
     });
   }
