@@ -26,6 +26,7 @@ import { mulberry32 } from './rng.js';
 import { warmMobs, makeMobRig } from './mobrig.js';
 import { PadInput, KeyPad, connectedPads } from './pad.js';
 import { LocalParty, makeLocalHub } from './net.js';
+import { Profile } from './profile.js';
 import { AllyTags } from './allytags.js';
 import { HealthPickups } from './pickups.js';
 import { Unlocks, charUnlocked, gearUnlocked, speedUnlocked } from './unlocks.js';
@@ -38,9 +39,11 @@ const QUALITY = { low: 0, medium: 1, high: 2 };
 const SPEED = { n: 1 };
 const SPLIT_SCALE = 0.8; // starting resolution scale for each couch seat
 const q10 = (v) => Math.round(v * 10);
+// Settings are shared by the device; everything else (records, skins, last loadout) belongs to the signed-in profile.
+const devKey = (k) => /settings$/.test(k);
 const LS = {
-  get(k, d) { try { const v = localStorage.getItem('perfectrun.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem('perfectrun.' + k, JSON.stringify(v)); } catch {} },
+  get(k, d) { try { const v = devKey(k) ? localStorage.getItem('perfectrun.' + k) : Profile.get('perfectrun.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { if (devKey(k)) localStorage.setItem('perfectrun.' + k, JSON.stringify(v)); else Profile.set('perfectrun.' + k, JSON.stringify(v)); } catch {} },
 };
 
 export class Game {
@@ -58,6 +61,7 @@ export class Game {
     this.pad = opts.pad === 'kb' ? new KeyPad() : new PadInput(opts.pad === undefined ? 'any' : opts.pad);
     this.hitSrc = new Map();
     this.settings = Object.assign({ quality: 'high', sens: 1, vol: 0.6, name: this.seat === 2 ? 'Player 2' : 'Runner' + Math.floor(Math.random() * 900 + 100), fps: false, roundLen: 10, hard: false, speed: 1, view: 'third', layout: 'ds', sensAds: 1, invertY: false, music: true, musicVol: 1, sfx: true, fov: 70, shake: true, dmgNums: true }, LS.get(this.lsKey('settings'), {}));
+    if (this.seat === 1 && !this.isBot && Profile.playName()) this.settings.name = Profile.playName(); // signed-in players play under their profile name
     this.settings.roundLen = this.settings.roundLen === 0 ? 0 : 10; // 10-minute rounds, or 0 = Endless (Nutty 2026-11-05)
     if (this.isBot) Object.assign(this.settings, { name: 'CPU', vol: 0, view: 'first' });
     // Couch co-op runs two full renderers on one screen: each seat is capped at medium quality and

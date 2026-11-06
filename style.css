@@ -922,3 +922,31 @@ body.split .lobby-left .btn.big small { font-size: .62em; }
 #s-create .panel { display: flex; flex-direction: column; gap: .8rem; }
 #join-quick { width: 100%; margin-bottom: .6rem; }
 .arc-opts #vis-field { display: flex; }
+
+/* ---------- profiles: Who's playing? ---------- */
+.login { position: fixed; inset: 0; z-index: 120; display: none; align-items: center; justify-content: center; padding: 16px; background: radial-gradient(ellipse at center, rgba(30,18,34,.94), rgba(5,3,7,.98)); }
+.login.on { display: flex; }
+.login-panel { width: min(560px, 100%); display: flex; flex-direction: column; gap: 1rem; padding: 2rem; border-radius: 18px; background: rgba(16,14,22,.86); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+.login-logo { font-family: var(--title); font-weight: 900; font-size: 2rem; letter-spacing: .12em; color: var(--gold); text-align: center; }
+.login-logo em { font-style: normal; font-size: .6em; color: var(--text); margin-right: .3em; }
+.login h2 { margin: 0 0 .4rem; text-align: center; }
+#lg-home { display: flex; flex-direction: column; gap: .7rem; }
+.lg-users { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; max-height: 46vh; overflow: auto; padding: 2px; }
+.lg-user { display: flex; flex-direction: column; align-items: center; gap: .35rem; padding: .8rem .4rem; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.35); color: var(--text); transition: border-color .15s, transform .12s; }
+.lg-user:hover, .lg-user:focus-visible { border-color: var(--gold); transform: translateY(-2px); outline: none; }
+.lg-user i { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: 1.5rem; background: linear-gradient(135deg, #3a2a50, #1a1426); border: 2px solid rgba(255,255,255,.2); }
+.lg-user.admin i { background: linear-gradient(135deg, #f5c242, #8a5a10); color: #1d1206; border-color: #ffe08a; }
+.lg-user b { font-size: 1rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-user small { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+#lg-guest small { display: block; font-size: .78rem; opacity: .75; font-weight: 600; }
+.lg-form { display: flex; flex-direction: column; gap: .75rem; }
+.lg-form .field input { background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; padding: .6rem .7rem; }
+.lg-err { color: #ff7a7a; min-height: 1.2em; margin: 0; font-weight: 700; }
+.profile-chip { display: flex; align-items: center; justify-content: space-between; gap: .6rem; font-size: .88rem; color: var(--muted); padding: .2rem .2rem; }
+.profile-chip b { color: var(--text); }
+.profile-chip em { font-style: normal; font-size: .68rem; font-weight: 800; letter-spacing: .12em; color: #1d1206; background: var(--gold); border-radius: 4px; padding: .05rem .35rem; margin-left: .3rem; }
+.acc-list { display: flex; flex-direction: column; gap: .4rem; }
+.acc-row { display: grid; grid-template-columns: 1fr auto auto; gap: .6rem; align-items: center; padding: .4rem .6rem; border-radius: 8px; background: rgba(0,0,0,.3); }
+.acc-row span { color: var(--muted); font-size: .8rem; }
+.btn.danger { border-color: rgba(255,90,90,.5); color: #ffb0b0; }
+#name[readonly] { opacity: .8; cursor: default; }

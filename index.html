@@ -16,6 +16,27 @@
 </script>
 </head>
 <body>
+<div id="login" class="login">
+  <div class="login-panel">
+    <div class="login-logo"><em>The</em> PERFECT RUN</div>
+    <div id="lg-home">
+      <h2>Who's playing?</h2>
+      <div id="lg-users" class="lg-users"></div>
+      <button class="btn primary" id="lg-new">+ Add new user</button>
+      <button class="btn" id="lg-guest">Play as Guest <small>jump straight in · progress is not saved</small></button>
+    </div>
+    <form id="lg-form" class="lg-form" style="display:none" autocomplete="on">
+      <h2 id="lg-title"></h2>
+      <p class="muted" id="lg-sub"></p>
+      <label class="field" id="lg-name-f"><span>Name</span><input id="lg-name" maxlength="16" autocomplete="username" spellcheck="false"></label>
+      <label class="field"><span>Password</span><input id="lg-pw" type="password" maxlength="64" autocomplete="current-password"></label>
+      <label class="field" id="lg-pw2-f"><span>Confirm password</span><input id="lg-pw2" type="password" maxlength="64" autocomplete="new-password"></label>
+      <p class="lg-err" id="lg-err"></p>
+      <button class="btn primary" type="submit" id="lg-go">Sign in</button>
+      <button class="btn small ghost" type="button" id="lg-back">Back</button>
+    </form>
+  </div>
+</div>
 <div id="loading" class="on"><div class="ld-logo">THE PERFECT RUN</div><div class="ld-bar"><i></i></div><div class="ld-text">Forging the world…</div></div>
 <div class="seat" id="seat1" data-screen="s-title">
 <canvas class="game-canvas"></canvas>
@@ -30,6 +51,7 @@
     </div>
     <div class="menu">
       <div class="fire-ring" id="fire-ring"><i></i><i></i><i></i></div>
+      <div class="profile-chip" id="profile-chip"></div>
       <label class="name-field"><span>Your name</span><input id="name" maxlength="16" autocomplete="off" spellcheck="false"></label>
       <button class="btn primary" id="btn-solo">Play Solo</button>
       <button class="btn" id="btn-create">Create Party</button>
@@ -242,6 +264,10 @@
         <label class="field"><span>Aim-down-sights sensitivity <em id="sens-ads-val"></em></span><input type="range" id="set-sens-ads" min="0.3" max="1.5" step="0.05"></label>
         <label class="check"><input type="checkbox" id="set-invert"> Invert vertical look</label>
         <label class="field"><span>Camera</span><select id="set-view"><option value="third">Third person</option><option value="first">First person</option></select></label>
+      </div>
+      <div class="set-group" id="set-accounts" style="display:none"><h3>Accounts <small>Admin only</small></h3>
+        <p class="muted">User profiles saved on this device. Deleting one removes its saved progress for good.</p>
+        <div id="acc-list" class="acc-list"></div>
       </div>
       <div class="set-group"><h3>Audio</h3>
         <label class="field"><span>Master volume <em id="vol-val"></em></span><input type="range" id="set-vol" min="0" max="1" step="0.05"></label>

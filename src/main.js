@@ -1,6 +1,8 @@
 import { Game } from './game.js';
 import { UI } from './ui.js';
 import { loadAssets } from './assets.js';
+import { Profile } from './profile.js';
+import { runLogin } from './loginui.js';
 
 const loading = document.getElementById('loading');
 // A pristine copy of the seat markup, for the second couch co-op seat.
@@ -61,7 +63,10 @@ window.addEventListener('unhandledrejection', (e) => { if (!window.__game) fail(
 requestAnimationFrame(() => setTimeout(async () => {
   const bar = loading.querySelector('.ld-bar i'), txt = loading.querySelector('.ld-text');
   txt.textContent = 'Loading characters…';
+  // Who's playing? (shown over the loading screen while the assets come in; skipped when a profile is still signed in)
+  const who = Profile.restore() ? Promise.resolve() : runLogin();
   await loadAssets((f) => { if (bar) { bar.style.animation = 'none'; bar.style.transition = 'width .2s'; bar.style.width = Math.round(f * 100) + '%'; } });
+  await who;
   txt.textContent = 'Forging the world…';
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 20)));
   try {

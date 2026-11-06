@@ -2,6 +2,7 @@
 // blessings, summary, settings. Game logic lives in game.js.
 import { renderPShop, gemURL } from './metashop.js';
 import { getMeta } from './meta.js';
+import { Profile } from './profile.js';
 import { CONFIG, CLASSES, CLASS_BY_ID, WEAPONS, WEAPON_BY_ID, NPCS, NPC_TYPES, BIOMES, BOSSES, DASH, DUEL, POWERUP_BY_ID, puInfo, TIER, splitLoadout, loadoutFull } from './data.js';
 import { JET } from './jetpack.js';
 import { WING } from './wings.js';
@@ -153,6 +154,15 @@ export class UI {
     const g = this.game;
     const name = this.$('#name');
     name.value = g.settings.name;
+    // Signed-in profiles play under their own name; Guest can type any name.
+    const chip = this.$('#profile-chip');
+    if (chip) {
+      const P = Profile.cur;
+      chip.style.display = g.seat === 1 ? '' : 'none';
+      chip.innerHTML = `<span>${P.kind === 'guest' ? 'Playing as <b>Guest</b> · progress is not saved' : 'Signed in as <b>' + esc(P.name) + '</b>' + (P.kind === 'admin' ? ' <em>ADMIN</em>' : '')}</span><button class="link" id="profile-switch">${P.kind === 'guest' ? 'Sign in' : 'Switch profile'}</button>`;
+      this.$('#profile-switch').onclick = () => { g.audio.play('ui'); Profile.signOut(); location.reload(); };
+    }
+    name.readOnly = g.seat === 1 && !!Profile.playName();
     name.addEventListener('change', () => { g.settings.name = name.value.trim().slice(0, 16) || g.settings.name; name.value = g.settings.name; g.saveSettings(); });
     this.$('#btn-couch').style.display = g.seat === 1 ? '' : 'none';
     this.$('#btn-couch').onclick = () => { g.audio.unlock(); g.audio.play('ui'); g.duelMode = false; this.openCouch(); };
@@ -739,6 +749,27 @@ export class UI {
     this.$('#set-fps').checked = !!g.settings.fps;
     this.$('#set-blood').checked = g.settings.hudBlood === true;
     this.settingsVals();
+    this.renderAccounts();
+  }
+
+  // Settings > Accounts, Admin only: every user profile on this device with a Delete button (press twice to confirm).
+  renderAccounts() {
+    const box = this.$('#set-accounts');
+    if (!box) return;
+    const admin = Profile.isAdmin() && this.game.seat === 1;
+    box.style.display = admin ? '' : 'none';
+    if (!admin) return;
+    const users = Profile.users();
+    const list = this.$('#acc-list');
+    list.innerHTML = users.length
+      ? users.map((u) => `<div class="acc-row"><b>${esc(u.name)}</b><span>${u.created ? new Date(u.created).toLocaleDateString() : ''}</span><button class="btn small danger" data-del="${esc(u.id)}">Delete</button></div>`).join('')
+      : '<p class="muted">No user profiles yet.</p>';
+    list.querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => {
+      if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Press again to delete'; setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Delete'; } }, 3000); return; }
+      const u = users.find((x) => x.id === b.dataset.del);
+      if (Profile.deleteUser(b.dataset.del)) this.toast('Deleted ' + (u ? u.name : 'the account'), 'good');
+      this.renderAccounts();
+    }));
   }
   // The value readouts and the rest of the Settings controls.
   settingsVals() {

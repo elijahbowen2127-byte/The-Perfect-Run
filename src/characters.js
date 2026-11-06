@@ -34,7 +34,7 @@ export const CHARACTERS = [
   { id: 'kratia', name: 'Kratia', role: 'Duelist', blurb: 'A red combat suit, silver hair and no patience for anyone slower than her. She hits first and keeps moving.', file: 'kratia.glb', tposeArms: true, height: 1.75, stats: { hp: 0.95, speed: 1.08 } }, // Nutty 2026-11-05: Mixamo #22
   { id: 'selena', name: 'Selena', role: 'Rogue', blurb: 'Hooded, cloaked in black leather and gone before the bodies hit the floor. Quiet, quick and hard to pin down.', file: 'selena.glb', tposeArms: true, height: 1.72, stats: { hp: 0.92, speed: 1.1 } }, // Nutty 2026-11-05: Mixamo #15
   { id: 'knight', name: 'Sir Aldric', role: 'Knight', blurb: 'Full plate, a great helm and a vow he takes far too seriously. Slow, loud and very hard to put down.', file: 'aldric.glb', tposeArms: true, height: 1.92, bulk: 0.95, stats: { hp: 1.25, speed: 0.92 } }, // Nutty 2026-11-05: Mixamo #1 body, same name (was the hand-built knight on veteran.glb)
-  { id: 'ninja', name: 'Kiri', role: 'Ninja', blurb: 'Black shinobi shozoku, a short blade on the back and no footsteps worth hearing. Fast, quiet, fragile.', file: 'veteran.glb', tposeArms: true, build: 'ninja', height: 1.74, bulk: 0.96, stats: { hp: 0.9, speed: 1.12 } },
+  { id: 'ninja', name: 'Kiri', role: 'Ninja', blurb: 'Indigo shinobi garb, a masked face and no footsteps worth hearing. Fast, quiet, fragile.', file: 'kiri.glb', tposeArms: true, height: 1.76, stats: { hp: 0.9, speed: 1.12 } }, // Nutty 2026-11-06: the Mixamo ninja replaces the hand-built one
   { id: 'corsair', name: 'Captain Saltvane', role: 'Pirate Captain', blurb: 'Tricorne, frock coat, one good eye and a parrot that swears in four languages. Yo ho.', file: 'veteran.glb', tposeArms: true, build: 'corsair', height: 1.84, stats: { hp: 1.08, speed: 0.98 } },
 ];
 for (const c of CHARACTERS) c.skins = SKINS[c.id] || [];
@@ -95,6 +95,23 @@ function skinBodyMaterials(scene, def, skin) {
     const r = skin.suit;
     edit(/Outfit_(Top|Bottom)/, (m) => {
       if (m.map && m.map.image) m.map = recolorTexture(m.map, skin.id, (h, sat, l) => [h + r.dh, sat * r.sk, l * r.lk + (r.l0 || 0)]).map;
+      return m;
+    });
+  }
+  // Mixamo heroes (one textured body each): a skin recolours every texture. `mx.h` set = repaint to that hue,
+  // otherwise shift the existing colours. Skin-tone pixels are left alone unless keepSkin is false.
+  // metal / rough make the surface shinier (the knight's plate).
+  if (skin.mx && !def.build) {
+    const r = skin.mx, keep = r.keepSkin !== false;
+    const isSkin = (h, sat, l) => (h <= 42 || h >= 350) && sat >= 0.18 && sat <= 0.68 && l >= 0.28 && l <= 0.86;
+    edit(/./, (m) => {
+      if (m.map && m.map.image) m.map = recolorTexture(m.map, skin.id + 'mx', (h, sat, l) => {
+        if (keep && isSkin(h, sat, l)) return null;
+        return r.h != null ? [r.h, (r.s0 || 0) + sat * (r.sk ?? 1), (r.l0 || 0) + l * (r.lk ?? 1)] : [h + (r.dh || 0), sat * (r.sk ?? 1), (r.l0 || 0) + l * (r.lk ?? 1)];
+      }).map;
+      if (r.metal != null && 'metalness' in m) { m.metalness = r.metal; if (m.metalnessMap && r.metal > 0.5) m.metalnessMap = null; }
+      if (r.rough != null && 'roughness' in m) { m.roughness = r.rough; if (m.roughnessMap && r.rough < 0.5) m.roughnessMap = null; }
+      if (r.env != null && 'envMapIntensity' in m) m.envMapIntensity = r.env;
       return m;
     });
   }

@@ -1,20 +1,21 @@
 // Things the player earns and keeps on this device (localStorage 'perfectrun.unlocks'): flags such as the hidden space map and
 // The Visitor character, plus lifetime progress counters for the gear unlock goals.
+import { Profile } from './profile.js';
 const KEY = 'perfectrun.unlocks';
 let cache = null;
 function load() {
   if (cache) return cache;
-  try { cache = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { cache = null; }
+  try { cache = JSON.parse(Profile.get(KEY) || 'null'); } catch { cache = null; }
   if (!cache || typeof cache !== 'object') cache = {};
   cache.flags = cache.flags || {}; cache.prog = cache.prog || {};
   return cache;
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(cache)); } catch { /* private mode: the unlock lasts this session only */ } }
+function save() { Profile.set(KEY, JSON.stringify(cache)); }
 
 export const Unlocks = {
-  has(id) { return !!load().flags[id]; },
+  has(id) { return Profile.isAdmin() || !!load().flags[id]; }, // Admin: everything unlocked
   grant(id) { const u = load(); if (u.flags[id]) return false; u.flags[id] = 1; save(); return true; },
-  count(stat) { return load().prog[stat] || 0; },
+  count(stat) { return Profile.isAdmin() ? 1e9 : load().prog[stat] || 0; },
   add(stat, n = 1) { const u = load(); u.prog[stat] = (u.prog[stat] || 0) + n; save(); },
   max(stat, n) { const u = load(); if (n > (u.prog[stat] || 0)) { u.prog[stat] = n; save(); } },
 };

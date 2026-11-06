@@ -1,6 +1,8 @@
 // Perfect Points (PP) and the permanent power-ups bought with them in the Perfect Shop.
 // Saved on this device, shared by both couch seats. Ranks apply at the start of every run.
+import { Profile } from './profile.js';
 const KEY = 'perfectrun.meta';
+const ADMIN_PP = 999999; // Admin can buy anything in the Perfect Shop
 
 export const META = [
   { id: 'might', name: 'Might', icon: '⚔', max: 5, base: 50, per: '+5% damage', lore: 'Every blow you ever landed is remembered. The Archivist hands them back, sharpened.', apply: (s, r) => (s.dmg *= 1 + 0.05 * r) },
@@ -26,7 +28,7 @@ export const costOf = (m, rank) => Math.round((m.base * (1 + 0.55 * rank)) / 5) 
 const RETIRED = { secondwind: { base: 250 }, jetpack: { base: 260 } }; // the jetpack is gear on the weapon wall now
 function read() {
   try {
-    const v = JSON.parse(localStorage.getItem(KEY) || 'null');
+    const v = JSON.parse(Profile.get(KEY) || 'null');
     if (v && typeof v === 'object') {
       const out = { pp: Math.max(0, v.pp | 0), ranks: v.ranks || {}, spent: v.spent || 0, earned: v.earned || 0 };
       for (const [id, d] of Object.entries(RETIRED)) {
@@ -36,15 +38,16 @@ function read() {
           for (let i = 0; i < r; i++) back += Math.round((d.base * (1 + 0.55 * i)) / 5) * 5;
           out.pp += back; out.spent = Math.max(0, out.spent - back);
           delete out.ranks[id];
-          try { localStorage.setItem(KEY, JSON.stringify(out)); } catch {}
+          Profile.set(KEY, JSON.stringify(out));
         }
       }
+      if (Profile.isAdmin()) out.pp = Math.max(out.pp, ADMIN_PP);
       return out;
     }
   } catch {}
-  return { pp: 0, ranks: {}, spent: 0, earned: 0 };
+  return { pp: Profile.isAdmin() ? ADMIN_PP : 0, ranks: {}, spent: 0, earned: 0 };
 }
-function write(m) { try { localStorage.setItem(KEY, JSON.stringify(m)); } catch {} return m; }
+function write(m) { Profile.set(KEY, JSON.stringify(m)); return m; }
 
 export const getMeta = read;
 export const metaRank = (id) => (read().ranks[id] | 0);

@@ -15,9 +15,10 @@ const S = (id, name, sw, rest = {}) => ({ id, name, pp: 0, sw, ...rest });
 
 export const SKINS = {
   veteran: [
-    S('rifleman', 'Rifleman', ['#4a4a32', '#6e6648']),
-    S('navy', 'Navy Officer', ['#27324d', '#b6bfcf'], { suit: { dh: 165, sk: 1.35, lk: 0.95, l0: 0.02 }, gear: { od: '#2a3550', web: '#aab4c4', spots: ['#1c2438', '#3a4a6c', '#12192a', '#566a94'], brass: 0xc9ced8 } }),
-    S('winter', 'Winter Patrol', ['#e3e7ec', '#8d97a3'], { suit: { dh: 0, sk: 0.1, lk: 1.45, l0: 0.2 }, gear: { od: '#dfe3e6', web: '#8f98a3', spots: ['#c4cbd1', '#f3f5f7', '#a9b2ba', '#ffffff'], brass: 0xb4bcc8 } }),
+    S('rifleman', 'Black Ops', ['#2a2c30', '#6a6e74']),
+    S('navy', 'Navy Seal', ['#1f3358', '#8a9bb8'], { mx: { h: 216, s0: 0.32, sk: 0.3, l0: 0.02, lk: 1.05 } }),
+    S('winter', 'Winter Patrol', ['#e3e7ec', '#8d97a3'], { mx: { h: 210, s0: 0.04, sk: 0.1, l0: 0.36, lk: 0.85 } }),
+    S('desert', 'Desert Storm', ['#b49a6a', '#6e5a3a'], { mx: { h: 36, s0: 0.3, sk: 0.25, l0: 0.12, lk: 1.05 } }),
   ],
   bonelord: [
     S('bleached', 'Bleached', ['#d9ccad', '#9fe8ff']),
@@ -60,15 +61,39 @@ export const SKINS = {
     S('sage', 'Sage Scribe', ['#8fae8a', '#e7c98f'], { clay: 0xcf8f5e, joints: 0x9a5a38, coat: 0x9db796, coat2: 0x7b9776, trim: 0xe7c98f, pants: 0x4b4a3a, boots: 0x6a5238, hat: 0xb8cdb0, glow: 0xffe08a, glowCore: 0xfff8dc }),
   ],
   knight: [
-    S('ironclad', 'Ironclad', ['#8a9098', '#5c6168', '#c4cad2'], { steel: 0x9aa1aa, steel2: 0x737a84, mail: 0x666c76, tabard: 0x6b7078, tabard2: 0x565b62, emblem: 0x8d939b, heraldry: 'cross', trim: 0xa9b0b9, leather: 0x34302c, plume: 0x6b7078 }),
-    S('crusader', 'Crusader', ['#b9c0c8', '#f1ece0', '#b8202a'], { steel: 0xb4bcc6, steel2: 0x8f98a4, mail: 0x6c727c, tabard: 0xefe9da, tabard2: 0xcfc7b4, emblem: 0xb8202a, heraldry: 'cross', trim: 0xd9b45a, leather: 0x4a3222, plume: 0xb8202a }),
-    S('blackguard', 'Blackguard', ['#3a3d46', '#1c1620', '#c9a24a'], { steel: 0x4a4e58, steel2: 0x33363e, mail: 0x3a3d45, tabard: 0x1e1724, tabard2: 0x2e2236, emblem: 0xc9a24a, heraldry: 'chevron', trim: 0xc9a24a, leather: 0x2a1c16, plume: 0x6a1e8a }),
-    S('azure', 'Azure Lion', ['#d6dde6', '#2a4fa8', '#f0c23c'], { steel: 0xd3dae2, steel2: 0xa9b3bf, mail: 0x7a828e, tabard: 0x2a4fa8, tabard2: 0x1d3a80, emblem: 0xf0c23c, heraldry: 'bars', trim: 0xf0c23c, leather: 0x3c2a1c, plume: 0xf0c23c }),
+    S('ironclad', 'Ironclad', ['#9aa2ac', '#d4dae2', '#5c6168'], { mx: { h: 214, s0: 0.05, sk: 0.15, l0: 0.1, lk: 1.45, metal: 0.85, rough: 0.26, env: 1.7 } }),
+    S('crusader', 'Silver Crusader', ['#dfe4ea', '#b9c0c8', '#f1ece0'], { mx: { h: 210, s0: 0.03, sk: 0.15, l0: 0.3, lk: 1.15, metal: 0.9, rough: 0.22, env: 1.8 } }),
+    S('blackguard', 'Blackguard', ['#2a2530', '#4a3d58', '#c9a24a'], { mx: { h: 275, s0: 0.14, sk: 0.25, l0: 0, lk: 0.6, metal: 0.7, rough: 0.35 } }),
+    S('azure', 'Azure Lion', ['#2a4fa8', '#7d9ad8', '#f0c23c'], { mx: { h: 220, s0: 0.45, sk: 0.3, l0: 0.06, lk: 1.2, metal: 0.8, rough: 0.3, env: 1.5 } }),
+    S('gilded', 'Gilded', ['#e0b04a', '#8a6420'], { mx: { h: 42, s0: 0.62, sk: 0.2, l0: 0.08, lk: 1.25, metal: 0.95, rough: 0.25, env: 1.8 } }),
   ],
   ninja: [
-    S('shadow', 'Shadow', ['#15151a', '#b8202a'], { suit: 0x16161b, suit2: 0x2a2a33, wrap: 0x3e3e4a, leather: 0x2c2420, sash: 0xb8202a, trim: 0x9a9aa6, skin: 0xd9a583, eye: 0x1a1410 }),
-    S('ash', 'Ash Mist', ['#3a3c44', '#e8e4d8'], { suit: 0x3a3c44, suit2: 0x4c4e5a, wrap: 0x6a6c80, leather: 0x3a2e28, sash: 0xe8e4d8, trim: 0xc0c4d0, skin: 0xcf9d7c, eye: 0x1a1410 }),
-    S('viper', 'Viper', ['#101418', '#5ad64a'], { suit: 0x101418, suit2: 0x1e262a, wrap: 0x2e4034, leather: 0x1e2a22, sash: 0x5ad64a, trim: 0x8fd880, skin: 0xd9a583, eye: 0x1c4a18 }),
+    S('indigo', 'Indigo', ['#3a3f6a', '#1a1c2a']),
+    S('shadow', 'Shadow', ['#15151a', '#3a3a44'], { mx: { h: 235, s0: 0.04, sk: 0.1, l0: 0, lk: 0.42 } }),
+    S('ash', 'Ash Mist', ['#7a7c84', '#e8e4d8'], { mx: { h: 220, s0: 0.03, sk: 0.1, l0: 0.22, lk: 0.85 } }),
+    S('viper', 'Viper', ['#1e4a24', '#5ad64a'], { mx: { h: 128, s0: 0.35, sk: 0.4, l0: 0, lk: 0.95 } }),
+    S('crimson', 'Crimson', ['#7a1620', '#d23a3a'], { mx: { h: 356, s0: 0.5, sk: 0.35, l0: 0, lk: 0.95 } }),
+  ],
+  ragmon: [
+    S('blank', 'Blank', ['#e6c4a8', '#c9a488']),
+    S('obsidian', 'Obsidian', ['#18181e', '#4a4a58'], { mx: { keepSkin: false, h: 235, s0: 0.06, sk: 0.1, l0: 0, lk: 0.22, metal: 0.4, rough: 0.25 } }),
+    S('marble', 'Marble', ['#f2f0ea', '#c8c4ba'], { mx: { keepSkin: false, h: 40, s0: 0.05, sk: 0.08, l0: 0.42, lk: 0.6, rough: 0.35 } }),
+    S('gold', 'Golden Idol', ['#e8b84a', '#8a6420'], { mx: { keepSkin: false, h: 43, s0: 0.72, sk: 0.15, l0: 0.04, lk: 0.85, metal: 0.95, rough: 0.25, env: 1.8 } }),
+    S('chrome', 'Chrome', ['#d8dde4', '#7a828c'], { mx: { keepSkin: false, h: 210, s0: 0.04, sk: 0.05, l0: 0.2, lk: 0.9, metal: 1, rough: 0.12, env: 2 } }),
+  ],
+  kratia: [
+    S('crimson', 'Crimson', ['#c4202a', '#d8d8de']),
+    S('void', 'Void', ['#16161c', '#5a5a6a'], { mx: { h: 240, s0: 0.05, sk: 0.15, l0: 0, lk: 0.4 } }),
+    S('frost', 'Frost', ['#3f86ff', '#dfe8f5'], { mx: { h: 212, s0: 0.45, sk: 0.4, l0: 0.02, lk: 1.05 } }),
+    S('venom', 'Venom', ['#2fae4a', '#0e2a14'], { mx: { h: 135, s0: 0.4, sk: 0.4, l0: 0, lk: 0.95 } }),
+    S('royal', 'Royal Violet', ['#7a3fd0', '#c6a8ff'], { mx: { h: 272, s0: 0.42, sk: 0.4, l0: 0.02, lk: 1.05 } }),
+  ],
+  selena: [
+    S('nightshade', 'Nightshade', ['#16141a', '#4a4250']),
+    S('blood', 'Blood Moon', ['#7a1018', '#c42a34'], { mx: { h: 356, s0: 0.55, sk: 0.3, l0: 0.04, lk: 1.6 } }),
+    S('ivory', 'Ivory', ['#ece6d8', '#a89c86'], { mx: { h: 40, s0: 0.1, sk: 0.1, l0: 0.5, lk: 0.9 } }),
+    S('royal', 'Royal Violet', ['#4a2a7a', '#9a6ad8'], { mx: { h: 270, s0: 0.45, sk: 0.3, l0: 0.05, lk: 1.6 } }),
+    S('forest', 'Forest Ranger', ['#2a4a26', '#7a6a3a'], { mx: { h: 105, s0: 0.35, sk: 0.3, l0: 0.05, lk: 1.6 } }),
   ],
   grey: [
     S('slate', 'Slate Grey', ['#b4bac2', '#05060a'], { skin: 0xb4bac2, shade: 0x6f7a88, eye: 0x05060a }),
