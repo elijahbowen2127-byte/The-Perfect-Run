@@ -938,7 +938,7 @@ body.split .lobby-left .btn.big small { font-size: .62em; }
 .lg-user.admin i { background: linear-gradient(135deg, #f5c242, #8a5a10); color: #1d1206; border-color: #ffe08a; }
 .lg-user b { font-size: 1rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lg-user small { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
-#lg-guest small { display: block; font-size: .78rem; opacity: .75; font-weight: 600; }
+#lg-guest small, #lg-signin small { display: block; font-size: .78rem; opacity: .75; font-weight: 600; }
 .lg-form { display: flex; flex-direction: column; gap: .75rem; }
 .lg-form .field input { background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; padding: .6rem .7rem; }
 .lg-err { color: #ff7a7a; min-height: 1.2em; margin: 0; font-weight: 700; }

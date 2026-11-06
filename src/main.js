@@ -64,7 +64,7 @@ requestAnimationFrame(() => setTimeout(async () => {
   const bar = loading.querySelector('.ld-bar i'), txt = loading.querySelector('.ld-text');
   txt.textContent = 'Loading characters…';
   // Who's playing? (shown over the loading screen while the assets come in; skipped when a profile is still signed in)
-  const who = Profile.restore() ? Promise.resolve() : runLogin();
+  const who = Promise.resolve(Profile.restore()).then((ok) => (ok ? null : runLogin()));
   await loadAssets((f) => { if (bar) { bar.style.animation = 'none'; bar.style.transition = 'width .2s'; bar.style.width = Math.round(f * 100) + '%'; } });
   await who;
   txt.textContent = 'Forging the world…';

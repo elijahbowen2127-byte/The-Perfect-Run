@@ -160,7 +160,7 @@ export class UI {
       const P = Profile.cur;
       chip.style.display = g.seat === 1 ? '' : 'none';
       chip.innerHTML = `<span>${P.kind === 'guest' ? 'Playing as <b>Guest</b> · progress is not saved' : 'Signed in as <b>' + esc(P.name) + '</b>' + (P.kind === 'admin' ? ' <em>ADMIN</em>' : '')}</span><button class="link" id="profile-switch">${P.kind === 'guest' ? 'Sign in' : 'Switch profile'}</button>`;
-      this.$('#profile-switch').onclick = () => { g.audio.play('ui'); Profile.signOut(); location.reload(); };
+      this.$('#profile-switch').onclick = () => { g.audio.play('ui'); Profile.signOut(); setTimeout(() => location.reload(), 150); };
     }
     name.readOnly = g.seat === 1 && !!Profile.playName();
     name.addEventListener('change', () => { g.settings.name = name.value.trim().slice(0, 16) || g.settings.name; name.value = g.settings.name; g.saveSettings(); });
@@ -405,7 +405,7 @@ export class UI {
     this.$('#hud').classList.remove('on');
     // Whatever the last run left on screen (summary, death note, duel result...) must never sit on top of the lobby and swallow clicks:
     // a seat that gets pulled back to the lobby by the host never pressed the summary button itself.
-    for (const id of ['#summary', '#dead', '#duelend', '#vote', '#bless', '#shop', '#bossbar']) { const e = this.$(id); if (e) e.classList.remove('on'); }
+    for (const id of ['#summary', '#dead', '#duelend', '#vote', '#bless', '#shop', '#bossbar', '#waiting']) { const e = this.$(id); if (e) e.classList.remove('on'); }
     const solo = g.party.kind === 'solo' || g.party.kind === 'local';
     this.$('#lobby-title').textContent = g.bot ? 'Duel Arena · versus the CPU' : g.duelMode ? (g.party.kind === 'local' ? 'Couch duel' : 'Duel party ' + g.partyCode) : g.party.kind === 'local' ? 'Couch co-op' : solo ? 'Solo run' : 'Party ' + g.partyCode;
     this.$('#invite').style.display = solo ? 'none' : '';
@@ -762,12 +762,12 @@ export class UI {
     const users = Profile.users();
     const list = this.$('#acc-list');
     list.innerHTML = users.length
-      ? users.map((u) => `<div class="acc-row"><b>${esc(u.name)}</b><span>${u.created ? new Date(u.created).toLocaleDateString() : ''}</span><button class="btn small danger" data-del="${esc(u.id)}">Delete</button></div>`).join('')
+      ? users.map((u) => `<div class="acc-row"><b>${esc(u.name)}</b><span>${u.created ? new Date(u.created).toLocaleDateString() : ''}</span><button class="btn small danger" data-del="${esc(u.id)}">${u.local ? 'Delete' : 'Remove from this device'}</button></div>`).join('')
       : '<p class="muted">No user profiles yet.</p>';
     list.querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => {
       if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Press again to delete'; setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Delete'; } }, 3000); return; }
       const u = users.find((x) => x.id === b.dataset.del);
-      if (Profile.deleteUser(b.dataset.del)) this.toast('Deleted ' + (u ? u.name : 'the account'), 'good');
+      if (Profile.deleteUser(b.dataset.del)) this.toast((u && !u.local ? 'Removed ' : 'Deleted ') + (u ? u.name : 'the account'), 'good');
       this.renderAccounts();
     }));
   }
@@ -1156,7 +1156,7 @@ export class UI {
     };
     const gearRows = gear.map((w) => { const G = GEAR_GOALS[w.id]; const [a, b] = G.p(); return row(w.name, G.how, a >= b, a, b, TIER(w) === 3 ? 'Gear' : 'Weapon'); });
     const extras = [
-      row('Crash Site Prime', 'Win a run on Hard difficulty (or just say yes to space after Thermes). Joins the random map pool.', Unlocks.has('space'), Unlocks.has('space') ? 1 : 0, 1, 'Hidden map'),
+      row('Crash Site Prime', 'Win a run on Hard difficulty. Say yes to space after beating Thermes in round 6 to play it: a 10-minute round with The Visitor as the boss.', Unlocks.has('space'), Unlocks.has('space') ? 1 : 0, 1, 'Hidden map'),
       row('The Visitor', 'Defeat The Visitor on Crash Site Prime', Unlocks.has('visitor'), Unlocks.has('visitor') ? 1 : 0, 1, 'Character'),
       ...Object.values(EXTRA_GOALS).map((G) => { const [a, b] = G.p(); return row(G.name, G.how, a >= b, a, b, G.tag); }),
     ];

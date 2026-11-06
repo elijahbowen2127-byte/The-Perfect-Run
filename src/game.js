@@ -433,7 +433,7 @@ export class Game {
     this.ready = false;
     this.cdAt = null;
     if (this.isBot) this.botLoadout();
-    this.party.set({ n: this.myName, ch: this.loadout.ch, sk: this.loadout.sk, c: this.loadout.c, wp: this.loadout.w, rdy: this.isBot ? 1 : 0, cd: 0, host: this.isHost ? 1 : 0, ig: 0 });
+    this.party.set({ jt: this.party.mine.jt || Date.now(), n: this.myName, ch: this.loadout.ch, sk: this.loadout.sk, c: this.loadout.c, wp: this.loadout.w, rdy: this.isBot ? 1 : 0, cd: 0, host: this.isHost ? 1 : 0, ig: 0 });
     if (this.isHost) this.party.set({ lb: this.lbInfo() });
     if (this.isHost && !this.sim) this.sim = new HostSim(this);
     if (this.isHost) this.sim.phase = 'lobby';
@@ -669,9 +669,37 @@ export class Game {
     this.fps = Math.round(1 / avg);
   }
 
+  // The host left: this player runs the party from now on (same code, same lobby).
+  becomeHost(why) {
+    const lb = this.lastHostLb || {};
+    this.isHost = true;
+    this.duelMode = !!lb.dm; this.partyPublic = lb.pub !== 0;
+    if (lb.rl != null) this.settings.roundLen = lb.rl === 0 ? 0 : 10;
+    this.sim = new HostSim(this); this.sim.phase = 'lobby';
+    this.party.promoted = false;
+    this.party.set({ host: 1, rdy: 0, lb: this.lbInfo(), w: this.sim.snapshot() });
+    this.ui.toast(why || 'The host left. You are the host now, so the lobby stays open.', 'good');
+    if (this.mode === 'game') this.backToLobby();
+    else this.ui.renderLobby();
+  }
+
+  // Online lobby: when the host is gone for a few seconds, the player who joined earliest takes over.
+  checkHostGone(host, peers) {
+    if (this.isHost || this.party.kind === 'solo' || this.party.kind === 'local') { this.hostGoneAt = null; return; }
+    if (host && host.p.lb) this.lastHostLb = host.p.lb;
+    if (this.party.kind === 'peer') { if (this.party.promoted) this.becomeHost(); return; } // the relay handoff is done in net.js
+    if (host) { this.hostGoneAt = null; return; }
+    if (this.hostGoneAt == null) this.hostGoneAt = performance.now();
+    if (performance.now() - this.hostGoneAt < 3000) return;
+    const order = peers.filter((p) => p.p && p.p.n).sort((a, b) => ((a.p.jt || 9e15) - (b.p.jt || 9e15)) || (a.id < b.id ? -1 : 1));
+    if (order[0] && order[0].me) this.becomeHost();
+  }
+
   lobbyTick() {
     const peers = this.party.peers();
     const host = this.hostPeer(peers);
+    this.checkHostGone(host, peers);
+    if (this.isHost && this.sim && this.sim.phase === 'lobby' && this.mode !== 'lobby') return;
     if (this.isHost) {
       this.party.set({ w: this.sim.snapshot() });
       if (this.sim.phase !== 'lobby') this.enterGame();
@@ -719,8 +747,11 @@ export class Game {
         this.ui.toast('The host left. You are now hosting.', '');
       }
     } else this.hostLostT = 0;
-    if (!this.isHost && !host && this.party.kind === 'peer' && this.party.status !== 'ok') {
-      if (!this.hostGoneShown) { this.hostGoneShown = true; this.ui.toast('Lost connection to the host.', 'bad'); }
+    if (!this.isHost && this.party.kind === 'peer') {
+      if (host && host.p.lb) this.lastHostLb = host.p.lb;
+      if (this.party.promoted) { this.becomeHost('The host left. You are the host now: everyone is back in the lobby.'); return; }
+      if (!host && this.party.status !== 'ok' && !this.hostGoneShown) { this.hostGoneShown = true; this.ui.toast(this.party.status === 'migrating' ? 'The host left. Moving the party to a new host…' : 'Lost connection to the host.', 'bad'); }
+      if (host) this.hostGoneShown = false;
     }
 
     if (this.isHost && !frozen) {
@@ -731,6 +762,7 @@ export class Game {
     host = this.isHost ? { p: { w: this.myW || this.sim.snapshot() } } : host;
     const w = host && host.p.w;
     if (w) { this.lastW = w; this.syncWorld(w, dt); }
+    if (this.mode !== 'game') return; // the host went back to the lobby (Run it back): this seat just left the game
     if (this.isHost && this.sim && this.world && this.sim.phase !== 'lobby' && this.sim.seed && this.world.seed !== this.sim.seed) { if (this.sim.duel) this.duelArena = this.sim.arena | 0; this.loadRound(this.sim.seed, this.sim.round); } // never let the world fall behind the sim
     if (!this.world) { this.ui.waiting(true); if (!quiet) this.render(this.scene, this.camera); return; }
     this.ui.waiting(false);

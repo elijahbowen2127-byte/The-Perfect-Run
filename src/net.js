@@ -288,6 +288,7 @@ export class PeerParty extends BaseParty {
   static async create(code, asHost) {
     const Peer = await loadPeerJS();
     const party = new PeerParty(code, asHost);
+    party.Peer = Peer;
     await party.start(Peer);
     return party;
   }
@@ -296,17 +297,19 @@ export class PeerParty extends BaseParty {
     this.kind = 'peer';
     this.code = code;
     this.asHost = asHost;
+    this.hostId = 'perfect-run-' + code.toLowerCase();
     this.table = new Map(); // id -> presence (host: from clients; client: from host relay)
     this.conns = new Map();
     this.hostConn = null;
     this.lastSent = 0;
+    this.promoted = false; // set when this client took over as host (the game picks it up)
   }
   start(Peer) {
-    const hostId = 'perfect-run-' + this.code.toLowerCase();
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Timed out connecting')), 15000);
-      this.peer = this.asHost ? new Peer(hostId, peerOpts()) : new Peer(peerOpts());
+      this.peer = this.asHost ? new Peer(this.hostId, peerOpts()) : new Peer(peerOpts());
       this.peer.on('error', (err) => {
+        if (this.peer && this.peer.open && err.type === 'peer-unavailable') return; // a reconnect knock that missed
         clearTimeout(timeout);
         this.status = 'error:' + (err.type || 'unknown');
         this.emitChange();
@@ -314,30 +317,72 @@ export class PeerParty extends BaseParty {
       });
       this.peer.on('open', (id) => {
         this.myId = id;
-        if (this.asHost) {
-          this.status = 'ok';
-          this.peer.on('connection', (conn) => {
-            conn.on('open', () => { this.conns.set(conn.peer, conn); this.emitChange(); });
-            conn.on('data', (m) => { if (m && m.t === 'p') { this.table.set(conn.peer, m.p); } });
-            conn.on('close', () => { this.conns.delete(conn.peer); this.table.delete(conn.peer); this.emitChange(); });
-          });
-          clearTimeout(timeout);
-          resolve();
-        } else {
-          const conn = this.peer.connect(hostId, { reliable: true, serialization: 'json' });
-          this.hostConn = conn;
-          conn.on('open', () => { this.status = 'ok'; clearTimeout(timeout); resolve(); });
-          conn.on('data', (m) => {
-            if (m && m.t === 'all') {
-              const prev = this.table.size;
-              this.table = new Map(Object.entries(m.ps).filter(([k]) => k !== this.myId));
-              if (this.table.size !== prev) this.emitChange();
-            }
-          });
-          conn.on('close', () => { this.status = 'closed'; this.table.clear(); this.emitChange(); });
-        }
+        if (this.asHost) { this.serveHost(); clearTimeout(timeout); resolve(); }
+        else this.joinHost(() => { clearTimeout(timeout); resolve(); });
       });
     });
+  }
+  // Host side: accept players and relay everyone's presence to everyone.
+  serveHost() {
+    this.status = 'ok';
+    this.peer.on('connection', (conn) => {
+      conn.on('open', () => { this.conns.set(conn.peer, conn); this.emitChange(); });
+      conn.on('data', (m) => { if (m && m.t === 'p') { this.table.set(conn.peer, m.p); } });
+      conn.on('close', () => { this.conns.delete(conn.peer); this.table.delete(conn.peer); this.emitChange(); });
+    });
+  }
+  // Client side: one connection to the host.
+  joinHost(onOpen) {
+    const conn = this.peer.connect(this.hostId, { reliable: true, serialization: 'json' });
+    this.hostConn = conn;
+    conn.on('open', () => { this.status = 'ok'; onOpen && onOpen(); });
+    conn.on('data', (m) => {
+      if (m && m.t === 'all') {
+        const prev = this.table.size;
+        this.table = new Map(Object.entries(m.ps).filter(([k]) => k !== this.myId));
+        if (this.table.size !== prev) this.emitChange();
+      }
+    });
+    conn.on('close', () => { if (this.hostConn === conn && !this.leaving) this.hostLost(); });
+  }
+  // The host left: the player who joined first after them takes over the same party code, the rest reconnect to it.
+  hostLost() {
+    this.status = 'migrating';
+    const others = [...this.table.entries()].filter(([id]) => id !== this.hostId);
+    const cands = [[this.myId, this.mine], ...others].sort((a, b) => ((a[1] && a[1].jt) || 9e15) - ((b[1] && b[1].jt) || 9e15) || (a[0] < b[0] ? -1 : 1));
+    this.table = new Map(others);
+    this.hostConn = null;
+    this.emitChange();
+    if (cands[0][0] === this.myId) this.takeOver(0);
+    else this.rejoin(0);
+  }
+  takeOver(n) {
+    if (this.leaving) return;
+    // Free this player's own relay name, then claim the party's host name (the old host's name frees up a moment after it leaves).
+    try { this.peer.destroy(); } catch {}
+    const p = new this.Peer(this.hostId, peerOpts());
+    let opened = false;
+    p.on('open', (id) => {
+      opened = true;
+      this.peer = p; this.myId = id; this.asHost = true; this.table = new Map(); this.conns = new Map();
+      this.serveHost();
+      this.promoted = true;
+      this.emitChange();
+    });
+    p.on('error', (err) => {
+      if (opened) return;
+      try { p.destroy(); } catch {}
+      if (n < 20) setTimeout(() => this.takeOver(n + 1), 1500);
+      else { this.status = 'error:' + (err.type || 'unknown'); this.emitChange(); }
+    });
+  }
+  rejoin(n) {
+    if (this.leaving) return;
+    setTimeout(() => {
+      if (this.leaving || this.status === 'ok') return;
+      const t = setTimeout(() => { if (this.status !== 'ok') { if (n < 15) this.rejoin(n + 1); else { this.status = 'closed'; this.emitChange(); } } }, 2500);
+      this.joinHost(() => { clearTimeout(t); this.emitChange(); });
+    }, n ? 2000 : 2500);
   }
   flush() {
     const now = Date.now();
@@ -357,5 +402,5 @@ export class PeerParty extends BaseParty {
     for (const [id, p] of this.table) out.push({ id, me: false, p });
     return out;
   }
-  leave() { super.leave(); try { this.peer && this.peer.destroy(); } catch {} }
+  leave() { this.leaving = true; super.leave(); try { this.peer && this.peer.destroy(); } catch {} }
 }

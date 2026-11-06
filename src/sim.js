@@ -5,7 +5,7 @@ import { CONFIG, MOBS, MOB_TYPES, BOSSES, BOSS_HP, BOSS_GROW, BOSS_HP_ROUND, BOS
 
 const q10 = (v) => Math.round(v * 10);
 const EVENT_TTL = 1.6;
-const SPACE_LEN = 20 * 60; // seconds on the crash site before The Visitor lands
+const SPACE_LEN = 10 * 60; // seconds on the crash site before The Visitor lands (10 minutes, like every round; Nutty 2026-11-06)
 
 // Thermes, the final boss: eye lasers that sweep the arena and ground smashes whose shockwave you jump over.
 export const THERMES = { laserWind: 0.9, laserTime: 2.6, laserSweep: 1.5, laserRange: 70, laserWidth: 2.4, laserDmg: 9, laserTick: 0.3, quakeWind: 1.0, quakeSpeed: 24, quakeRange: 62, quakeJump: 1.6, quakeDmg: 30, quakeKnock: 14 };
@@ -174,7 +174,7 @@ export class HostSim {
   beginRound() {
     this.seed = (Math.random() * 2 ** 31) | 0;
     this.phase = 'play';
-    this.space = stageIdx(this.runSeed, this.round) === 7; // Crash Site Prime: a 20-minute clock, and The Visitor lands when it hits zero
+    this.space = stageIdx(this.runSeed, this.round) === 7; // Crash Site Prime: a 10-minute clock, and The Visitor lands when it hits zero
     this.tl = this.space ? SPACE_LEN : this.roundLen;
     this.tl0 = this.tl;
     this.rt = 0;

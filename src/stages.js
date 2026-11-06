@@ -422,34 +422,83 @@ function buildSpace(w, st) {
   w.blobs.push({ x: 0, z: 0, y: floor, r: 30 });
 
   // ---- fire ----
+  // Each fire is a cluster of camera-facing flame tongues (one draw call for all of them). The shader warps layered noise
+  // upward so the tongues lick and split, and colours by heat: a white-yellow core, orange body, deep red tips that fade out.
   const flameMat = new THREE.ShaderMaterial({
     uniforms: { uT: { value: 0 } },
-    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
-    fragmentShader: `uniform float uT; varying vec2 vUv;
+    vertexShader: `attribute vec3 aC; attribute vec3 aS; varying vec2 vUv; varying float vSeed;
+      uniform float uT;
+      void main(){
+        vUv = uv; vSeed = aS.z;
+        vec3 toCam = cameraPosition - aC; toCam.y = 0.; toCam = normalize(toCam);
+        vec3 right = normalize(cross(vec3(0., 1., 0.), toCam));
+        float sway = sin(uT * 1.7 + aS.z * 6.) * .12 + sin(uT * 3.1 + aS.z * 11.) * .06;
+        vec3 p = aC + right * (uv.x - .5) * aS.x + vec3(0., uv.y * aS.y, 0.);
+        p += right * sway * aS.x * uv.y * uv.y + vec3(.35, 0., .12) * aS.y * .18 * uv.y * uv.y;
+        gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.);
+      }`,
+    fragmentShader: `uniform float uT; varying vec2 vUv; varying float vSeed;
       float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
       float nz(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+      float fbm(vec2 p){ float v = 0., a = .5; for (int i = 0; i < 4; i++) { v += a * nz(p); p = p * 2.03 + 17.1; a *= .5; } return v; }
       void main(){
-        float y = vUv.y, n = nz(vec2(vUv.x * 4., y * 3. - uT * 2.8)) * .65 + nz(vec2(vUv.x * 9. + 3., y * 6. - uT * 4.6)) * .35;
-        float w = (1. - y) * .55 + .05, shape = smoothstep(w, w * .3, abs(vUv.x - .5)) * smoothstep(1., .15, y);
-        float a = clamp(shape * (.55 + n * 1.1), 0., 1.);
-        vec3 c = mix(vec3(1., .92, .55), vec3(1., .3, .06), smoothstep(.0, .75, y + (1. - n) * .25));
-        gl_FragColor = vec4(c * (1.1 + n * .5), a);
+        float y = vUv.y, t = uT * (1. + fract(vSeed * 7.3) * .4) + vSeed * 40.;
+        vec2 q = vec2(vUv.x * 2.2 + vSeed * 9., y * 1.6 - t * 1.25);
+        vec2 warp = vec2(fbm(q), fbm(q + 5.2)) - .5;
+        float n = fbm(vec2(vUv.x * 3.4, y * 2.6 - t * 2.1) + warp * 1.6 + vSeed * 3.);
+        float x = (vUv.x - .5) + warp.x * .5 * y;               // the tongue bends and splits higher up
+        float width = mix(.34, .02, pow(y, .65)) * (.75 + n * .6);                  // wide at the base, a point at the top
+        float body = 1. - smoothstep(0., width, abs(x)); body *= body;
+        float heat = body * smoothstep(1., .05, y + (n - .5) * .55) * smoothstep(0., .08, y);
+        heat *= .55 + n * .9;
+        heat -= y * (1. - n) * 1.1;           // ragged tips that break off
+        heat = clamp(heat, 0., 1.);
+        vec3 col = mix(vec3(.45, .04, .01), vec3(1., .28, .03), smoothstep(.08, .4, heat));
+        col = mix(col, vec3(1., .62, .14), smoothstep(.35, .7, heat));
+        col = mix(col, vec3(1., .95, .75), smoothstep(.7, .98, heat));
+        float a = smoothstep(.04, .3, heat);
+        gl_FragColor = vec4(col * (.25 + heat * .45) * a, a);
       }`,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
   });
   w.animated.push((t) => (flameMat.uniforms.uT.value = t));
   const fires = [[16, 3.2, 8], [-14, 3.5, -12], [4, 5.5, -19], [-21, 2.6, 4], [20, 1.2, -10], [-2, 8.5, 2], [9, 4.0, 17], [-10, 3.2, 14]];
-  const flameGeo = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
-  const smokeSrc = [], emberSrc = [];
+  const smokeSrc = [], emberSrc = [], tongues = [];
   fires.forEach(([fx, fy, fz], i) => {
     const wp = new THREE.Vector3(fx, fy, fz).applyEuler(ufo.rotation).add(ufo.position), s = 7 + (i % 3) * 3;
-    for (const ry of [0, Math.PI / 2, Math.PI / 4]) {
-      const m = new THREE.Mesh(flameGeo, flameMat); m.scale.set(s * 0.7, s * 1.5, 1); m.position.copy(wp); m.rotation.y = ry + i; m.renderOrder = 5; m.frustumCulled = false; w.group.add(m);
+    // a tall main tongue, a ring of smaller licks around it, and low flames rolling along the base
+    tongues.push([wp.x, wp.y - 0.4, wp.z, s * 1.0, s * 1.55, r()]);
+    const n = 5 + (i % 3);
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * TAU + r() * 0.8, d = s * (0.12 + r() * 0.22), hh = s * (0.6 + r() * 0.6);
+      tongues.push([wp.x + Math.cos(a) * d, wp.y - 0.3 - r() * 0.4, wp.z + Math.sin(a) * d, hh * 0.7, hh, r()]);
     }
-    smokeSrc.push({ x: wp.x, y: wp.y + s * 0.9, z: wp.z, r: 3 }); emberSrc.push({ x: wp.x, y: wp.y + 1, z: wp.z, r: 4 });
+    for (let k = 0; k < 3; k++) { const a = r() * TAU, d = s * 0.3 * r(); tongues.push([wp.x + Math.cos(a) * d, wp.y - 0.2, wp.z + Math.sin(a) * d, s * 0.9, s * 0.45, r()]); }
+    smokeSrc.push({ x: wp.x, y: wp.y + s * 1.2, z: wp.z, r: 3 }); emberSrc.push({ x: wp.x, y: wp.y + 1, z: wp.z, r: 4 });
   });
-  plume(w, smokeSrc, { count: 170, color: 0x2a2220, size: 14, rise: 70, life: 9, alpha: 0.5, spread: 1.6, drift: [1.1, 0, 0.4], grow: 2.6 });
-  plume(w, emberSrc, { count: 120, color: 0xffa040, size: 1.6, rise: 26, life: 3.4, alpha: 0.9, spread: 2, additive: true, drift: [0.7, 0, 0.25], grow: 0.2 });
+  {
+    const N = tongues.length, pos = new Float32Array(N * 12), uv = new Float32Array(N * 8), aC = new Float32Array(N * 12), aS = new Float32Array(N * 12), idx = [];
+    tongues.forEach(([x, y, z, tw, th, seed], k) => {
+      [[0, 0], [1, 0], [1, 1], [0, 1]].forEach(([u, v], j) => {
+        const o = k * 4 + j;
+        pos.set([x, y, z], o * 3); uv.set([u, v], o * 2); aC.set([x, y, z], o * 3); aS.set([tw, th, seed], o * 3);
+      });
+      const o = k * 4; idx.push(o, o + 1, o + 2, o, o + 2, o + 3);
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setAttribute('aC', new THREE.BufferAttribute(aC, 3)); g.setAttribute('aS', new THREE.BufferAttribute(aS, 3)); g.setIndex(idx);
+    const m = new THREE.Mesh(g, flameMat); m.renderOrder = 5; m.frustumCulled = false; w.group.add(m);
+  }
+  // Hot glow at the foot of each fire, flickering.
+  const baseGlow = new THREE.SpriteMaterial({ map: SOFT(), color: 0xff7a26, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+  fires.forEach(([fx, fy, fz], i) => {
+    const wp = new THREE.Vector3(fx, fy, fz).applyEuler(ufo.rotation).add(ufo.position), s = 7 + (i % 3) * 3;
+    const sp = new THREE.Sprite(baseGlow); sp.position.set(wp.x, wp.y + s * 0.25, wp.z); sp.scale.set(s * 2.2, s * 1.4, 1); sp.renderOrder = 4; w.group.add(sp);
+  });
+  w.animated.push((t) => { baseGlow.opacity = 0.2 + Math.sin(t * 9.1) * 0.03 + Math.sin(t * 15.7) * 0.025; });
+  plume(w, smokeSrc, { count: 170, color: 0x1f1a18, size: 14, rise: 70, life: 9, alpha: 0.55, spread: 1.6, drift: [1.1, 0, 0.4], grow: 2.6 });
+  plume(w, emberSrc, { count: 220, color: 0xffb050, size: 0.3, rise: 30, life: 3.4, alpha: 1, spread: 2, additive: true, drift: [0.7, 0, 0.25], grow: 0.2 });
   // A pool of firelight on the crater floor.
   const glowTex = SOFT();
   const lightPool = new THREE.Mesh(new THREE.PlaneGeometry(34, 34).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: glowTex, color: 0xff6a1a, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));

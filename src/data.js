@@ -657,7 +657,7 @@ export const STAGE_POOL = [0, 1, 2, 3, 4, 6, 9, 11]; // The Abyss (5) dropped, F
 export function bossIdx(runSeed, round) { return round >= CONFIG.rounds ? 8 : round >= CONFIG.rounds - 1 ? 6 : STAGE_BOSS[stageIdx(runSeed, round)] ?? 0; }
 export function stageIdx(runSeed, round) {
   if (round >= CONFIG.rounds) return 7; // the optional bonus round after Fear is always the space map
-  const order = seedFlags(runSeed).space ? [...STAGE_POOL, 7] : [...STAGE_POOL];
+  const order = [...STAGE_POOL]; // Crash Site Prime never joins rounds 1-6: it is only the bonus round after Thermes (Nutty 2026-11-06)
   let a = (runSeed | 0) >>> 0;
   const rnd = () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
