@@ -1,6 +1,6 @@
 // The local player: movement, weapons, abilities, damage, beds and death.
 import * as THREE from 'three';
-import { CONFIG, DUEL, GRAV, HEAL, CLASSES, CLASS_BY_ID, WEAPONS, WEAPON_BY_ID, DASH, freshStats, XP, puInfo, ZONE_K } from './data.js';
+import { CONFIG, DUEL, GRAV, HEAL, CLASSES, CLASS_BY_ID, WEAPONS, WEAPON_BY_ID, DASH, freshStats, XP, puInfo, ZONE_K, zoneOf } from './data.js';
 import { makeHumanoid } from './models.js';
 import { animateWeapon, boltProto } from './weapons.js';
 import { launchArrow } from './longbow.js';
@@ -650,6 +650,17 @@ export class LocalPlayer {
     g.emitFx(['hs', Math.round(wp.heal * 100), ...ids]);
   }
 
+  // The height the crosshair points at, at this target's distance, mapped to a hit zone (body when aimed off the target).
+  meleeZone(t) {
+    const g = this.game, c = g.camera && g.camera.position, a = g.aim && g.aim.point;
+    if (!c || !a || t.kind === 'demon') return 'body';
+    const dx = a.x - c.x, dz = a.z - c.z, hl = Math.hypot(dx, dz);
+    if (hl < 1e-3) return 'body';
+    const y = c.y + ((a.y - c.y) / hl) * Math.hypot(t.x - c.x, t.z - c.z);
+    if (y < t.y - 0.4 || y > t.y + t.h + 0.4) return 'body';
+    return zoneOf({ ...t, y: t.y }, Math.min(t.y + t.h, Math.max(t.y, y)), 0);
+  }
+
   meleeHit() {
     const g = this.game, wp = this.weapon;
     const rm = wp.kind === 'melee' ? this.stats.reach : 1; // Reaper's Reach: wider swing and longer reach while a melee weapon is in hand
@@ -667,7 +678,9 @@ export class LocalPlayer {
       const kb = wp.kb || (wp.id === 'axe' ? 10 : 5);
       const dd = Math.hypot(dx, dz) || 1;
       // A wide swing can hit a whole crowd: only the first few hits get numbers, blood and sound.
-      g.damage(t, wp.dmg * dmgMul * this.stats.dmg, { kx: dx / dd * kb, kz: dz / dd * kb, at: [t.x, t.y + t.h * 0.6, t.z], silent: n >= 4 });
+      // Where the crosshair is on the body picks the hit zone: head = critical, legs = weakest.
+      const zone = this.meleeZone(t), zy = t.y + t.h * (zone === 'head' ? 0.9 : zone === 'leg' ? 0.3 : 0.6);
+      g.damage(t, wp.dmg * dmgMul * this.stats.dmg * (ZONE_K[zone] || 1), { kx: dx / dd * kb, kz: dz / dd * kb, at: [t.x, zy, t.z], zone, head: zone === 'head', silent: n >= 4 });
       hitAny = true; n++;
     }
     // The swing trail is drawn from the blade itself (CharacterRig -> FX.swipe), not here.

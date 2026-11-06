@@ -277,7 +277,7 @@ export const STAGE_MOBS = {
 export const STAGE_FLY = { abyss: ['gloomwing', 'skyhunter'], space: ['wasp'] };
 // Every other stage takes its flyer in turn from this list, a different one each round (Nutty 2026-11-05: alternate all flyers, #8 included).
 // Hit zones (Nutty 2026-11-05): every body takes different damage by where a shot lands. Head = yellow number.
-export const ZONE_K = { head: 2.0, body: 1.0, arm: 0.75, leg: 0.7 };
+export const ZONE_K = { head: 2.0, body: 1.0, arm: 0.8, leg: 0.6 }; // head = always a critical hit (yellow); legs are the weakest spot
 export function zoneOf(t, y, d2) {
   const rel = (y - t.y) / (t.h || 1), r = t.r || 0.5;
   if (rel > (t.kind === 'boss' ? 0.86 : 0.82)) return 'head';
@@ -467,7 +467,7 @@ export const POWERUPS = [
   { id: 'eldmg', kind: 'stat', icon: '✦', name: 'Elemental Might', desc: 'Your three powers (Q, F, G) hit 15% harder', apply: (s) => { for (const k of ['q', 'r', 'e']) s.mast[k].dmg *= 1.15; } },
   { id: 'extra', kind: 'extra', icon: '✚', name: 'One More', desc: 'Your signature power throws one more', apply: (s) => (s.extra += 1) },
   // Physical attack power-ups: one random pick on every level-up card row.
-  { id: 'crit', kind: 'special', lv: false, icon: '✧', name: 'Killer Instinct', desc: '+10% chance for any hit to deal double damage (stacks)', apply: (s) => (s.crit = Math.min(0.6, s.crit + 0.1)) },
+  { id: 'crit', kind: 'special', icon: '✧', name: 'Killer Instinct', desc: '+10% critical hit chance on every attack: double damage in yellow numbers (stacks)', apply: (s) => (s.crit = Math.min(0.6, s.crit + 0.1)) },
   { id: 'execute', kind: 'special', lv: false, icon: '☠', name: 'Executioner', desc: '+30% damage to enemies below a third of their health (stacks)', apply: (s) => (s.execute += 0.3) },
   { id: 'bigmag', kind: 'special', lv: false, icon: '▭', name: 'Extended Mag', desc: '+30% magazine on every gun (stacks)', apply: (s) => (s.mag *= 1.3) },
   { id: 'fastreload', kind: 'special', lv: false, icon: '↻', name: 'Fast Hands', desc: 'Reload and recharge 25% faster (stacks)', apply: (s) => (s.reload *= 0.75) },
