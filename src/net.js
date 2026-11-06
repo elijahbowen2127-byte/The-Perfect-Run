@@ -212,6 +212,78 @@ function loadPeerJS() {
   return peerLib;
 }
 
+// Relay options (tests point this at a local PeerServer; the game uses the free public PeerJS relay).
+const peerOpts = () => (typeof window !== 'undefined' && window.__peerOpts) || {};
+
+// ---------- Quickplay without a server of our own (GitHub site) ----------
+// The public PeerJS relay cannot list games, but it does refuse a name that is already taken. So every public party
+// hosted on the site claims one numbered spot (perfect-run-qp-0 .. 19) while it sits in the lobby. Finding games means
+// knocking on all the spots at once: an open party answers with its code, name and head count, then hangs up.
+export const QP_SLOTS = 20;
+const qpId = (i) => 'perfect-run-qp-' + i;
+export class PeerSlotLobby {
+  constructor() { this.kind = 'peer'; this.info = null; this.slot = null; this.claiming = false; this.found = []; this.listeners = new Set(); }
+  parties() { return this.found.slice(); }
+  onChange(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
+  emit() { for (const f of this.listeners) f(); }
+  advertise(info) {
+    this.info = info || null;
+    if (this.info && !this.slot && !this.claiming) this.claim().catch(() => {});
+    else if (!this.info && this.slot) { const s = this.slot; this.slot = null; try { s.destroy(); } catch {} }
+  }
+  async claim() {
+    this.claiming = true;
+    try {
+      const Peer = await loadPeerJS();
+      const order = [...Array(QP_SLOTS).keys()].sort(() => Math.random() - 0.5);
+      for (const i of order) {
+        if (!this.info) return;
+        const p = await new Promise((res) => {
+          let opened = false;
+          const peer = new Peer(qpId(i), peerOpts());
+          const t = setTimeout(() => { try { peer.destroy(); } catch {} res(null); }, 8000);
+          peer.on('open', () => { opened = true; clearTimeout(t); res(peer); });
+          peer.on('error', () => { if (opened) return; clearTimeout(t); try { peer.destroy(); } catch {} res(null); });
+        });
+        if (!p) continue;
+        if (!this.info) { try { p.destroy(); } catch {} return; }
+        this.slot = p;
+        p.on('connection', (c) => {
+          c.on('open', () => { c.send({ t: 'qp', info: this.info }); setTimeout(() => { try { c.close(); } catch {} }, 1500); });
+        });
+        p.on('disconnected', () => { if (this.slot === p) { try { p.reconnect(); } catch {} } });
+        return;
+      }
+    } finally { this.claiming = false; }
+  }
+  // Knock on every spot for a few seconds and keep whoever answers.
+  async scan(ms = 6000) {
+    const Peer = await loadPeerJS();
+    const me = new Peer(peerOpts());
+    await new Promise((res, rej) => {
+      const t = setTimeout(() => rej(new Error('Could not reach the game relay. Check your connection and try again.')), 10000);
+      me.on('open', () => { clearTimeout(t); res(); });
+      me.on('error', () => { if (me.open) return; clearTimeout(t); rej(new Error('Could not reach the game relay. Check your connection and try again.')); });
+    });
+    const found = new Map();
+    let n = 0, done = 0, finish;
+    const over = new Promise((r) => { finish = r; setTimeout(r, ms); });
+    const tick = () => { if (++done >= n) finish(); };
+    me.on('error', (e) => { if (e && e.type === 'peer-unavailable') tick(); }); // an empty spot answers fast
+    for (let i = 0; i < QP_SLOTS; i++) {
+      if (this.slot && this.slot.id === qpId(i)) continue;
+      n++;
+      const c = me.connect(qpId(i), { reliable: true, serialization: 'json' });
+      c.on('data', (m) => { if (m && m.t === 'qp' && m.info && typeof m.info.code === 'string') found.set(m.info.code, m.info); tick(); });
+    }
+    await over;
+    try { me.destroy(); } catch {}
+    this.found = [...found.values()];
+    this.emit();
+    return this.found;
+  }
+}
+
 export class PeerParty extends BaseParty {
   static async create(code, asHost) {
     const Peer = await loadPeerJS();
@@ -233,7 +305,7 @@ export class PeerParty extends BaseParty {
     const hostId = 'perfect-run-' + this.code.toLowerCase();
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Timed out connecting')), 15000);
-      this.peer = this.asHost ? new Peer(hostId) : new Peer();
+      this.peer = this.asHost ? new Peer(hostId, peerOpts()) : new Peer(peerOpts());
       this.peer.on('error', (err) => {
         clearTimeout(timeout);
         this.status = 'error:' + (err.type || 'unknown');

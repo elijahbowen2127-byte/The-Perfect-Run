@@ -189,7 +189,11 @@ export class UI {
       } catch (e) { this.screen('s-join'); this.toast(e.message || 'Quickplay could not connect', 'bad'); }
       this.busy(null);
     };
-    this.$('#btn-join').onclick = () => { g.audio.unlock(); g.audio.play('ui'); this.screen('s-join'); this.refreshPartyList(); };
+    this.$('#btn-join').onclick = () => {
+      g.audio.unlock(); g.audio.play('ui'); this.screen('s-join'); this.refreshPartyList();
+      // On the website (no claude.ai room) the open public games are found by knocking on the Quickplay spots.
+      if (g.lobby && g.lobby.scan && !this.scanning) { this.scanning = true; this.refreshPartyList(); g.lobby.scan().catch(() => {}).finally(() => { this.scanning = false; this.refreshPartyList(); }); }
+    };
     this.$('#btn-pshop').onclick = () => { g.audio.unlock(); g.audio.play('ui'); this.screen('s-pshop'); renderPShop(this); };
     this.$('#btn-unlocks').onclick = () => { g.audio.play('ui'); this.screen('s-unlocks'); this.renderUnlocks(); };
     this.$('#btn-help').onclick = () => { g.audio.play('ui'); this.screen('s-help'); };
@@ -376,11 +380,11 @@ export class UI {
     const t = g.transport;
     this.$('#net-note').textContent = t === 'room'
       ? 'Friends who open this same game link appear here. Their party shows up automatically.'
-      : t === 'bc' ? 'Local test mode: parties from other tabs on this computer.' : t === 'peer' ? 'Ask your friend for their party code or invite link.' : 'Looking for parties…';
+      : t === 'bc' ? 'Local test mode: parties from other tabs on this computer.' : t === 'peer' ? (this.scanning ? 'Looking for open public games…' : 'Open public games are listed here. Friends in a private party can send you their code or invite link.') : 'Looking for parties…';
     const parties = g.lobby ? g.lobby.parties().filter((p) => !p.me && p.pub !== 0) : [];
     list.innerHTML = parties.length
       ? parties.map((p) => `<button class="party-row" data-code="${esc(p.code)}"><span class="pr-host">${esc(p.host || 'Party')}'s ${p.dm ? 'duel' : 'party'}</span><span class="pr-n">${Math.min(5, p.n || 1)}/5</span><span class="pr-code">${esc(p.code)}</span></button>`).join('')
-      : `<div class="empty">${t === 'peer' ? 'Enter a code below to join.' : 'No open parties yet.'}</div>`;
+      : `<div class="empty">${t === 'peer' && this.scanning ? 'Searching…' : 'No open public games right now. Quickplay will host one for you.'}</div>`;
     this.$$('.party-row', list).forEach((b) => (b.onclick = () => this.join(b.dataset.code)));
   }
 

@@ -13,7 +13,7 @@ import { LocalPlayer, flashSize } from './player.js';
 import { HostSim, THERMES } from './sim.js';
 import { RemotePlayerView, MobView, BossView, DemonView, NpcView } from './views.js';
 import { CONFIG, CLASSES, CLASS_BY_ID, WEAPONS, WEAPON_BY_ID, BIOMES, BOSSES, NPCS, BLESSINGS, POWERUPS, ELEMENTS, CRATE_POOL, DUEL, DUEL_BIOMES, GRAV, HEAL, DUEL_PICKS, puInfo, levelOffer, rerollOffer, XP, MOB_TYPES, MOBS, stageIdx, bossIdx, seedFlags, MINI, ELITE, TIER, loadoutFull, zoneOf } from './data.js';
-import { SoloParty, RoomParty, RoomLobby, BCParty, BCLobby, PeerParty, getRoom, makeCode } from './net.js';
+import { SoloParty, RoomParty, RoomLobby, BCParty, BCLobby, PeerParty, getRoom, makeCode, PeerSlotLobby } from './net.js';
 import { Audio } from './audio.js';
 import { MenuScene } from './menu.js';
 import { setWeaponEnv, boltProto } from './weapons.js';
@@ -253,7 +253,7 @@ export class Game {
     else {
       const room = await getRoom();
       if (room) { this.transport = 'room'; this.room = room; this.lobby = new RoomLobby(room); }
-      else this.transport = 'peer';
+      else { this.transport = 'peer'; this.lobby = new PeerSlotLobby(); }
     }
     if (this.lobby) this.lobby.onChange(() => this.ui.refreshPartyList());
     this.ui.refreshPartyList();
@@ -487,6 +487,7 @@ export class Game {
 
   // Quickplay: join a random open public party (co-op first, not full); if none is open, host a public one for others to find.
   async quickplay() {
+    if (this.lobby && this.lobby.scan) await this.lobby.scan();
     const open = (this.lobby ? this.lobby.parties() : []).filter((p) => !p.me && p.code && p.pub !== 0 && (p.n || 1) < 5);
     const coop = open.filter((p) => !p.dm);
     const pool = coop.length ? coop : open;
